@@ -3,7 +3,7 @@
  * /ssl/edit.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,39 +22,42 @@
 <?php
 require_once __DIR__ . '/../_includes/start-session.inc.php';
 require_once __DIR__ . '/../_includes/init.inc.php';
-
-require_once DIR_ROOT . '/vendor/autoload.php';
-
-$system = new DomainMOD\System();
-$error = new DomainMOD\Error();
-$time = new DomainMOD\Time();
-$form = new DomainMOD\Form();
-$timestamp = $time->stamp();
-$assets = new DomainMOD\Assets();
-
-require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/software.inc.php';
+require_once DIR_ROOT . '/vendor/autoload.php';
+
+$deeb = DomainMOD\Database::getInstance();
+$system = new DomainMOD\System();
+$log = new DomainMOD\Log('/ssl/edit.php');
+$layout = new DomainMOD\Layout();
+$time = new DomainMOD\Time();
+$form = new DomainMOD\Form();
+$sanitize = new DomainMOD\Sanitize();
+$unsanitize = new DomainMOD\Unsanitize();
+$assets = new DomainMOD\Assets();
+
+$timestamp = $time->stamp();
+
+require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/ssl-edit.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
-$pdo = $system->db();
 $system->authCheck();
+$pdo = $deeb->cnxx;
 
-$del = $_GET['del'];
-$really_del = $_GET['really_del'];
+$del = (int) $_GET['del'];
+$really_del = (int) $_GET['really_del'];
 
-$sslcid = (integer) $_REQUEST['sslcid'];
-$new_domain_id = (integer) $_POST['new_domain_id'];
-$new_name = $_POST['new_name'];
-$new_type_id = (integer) $_POST['new_type_id'];
-$new_ip_id = (integer) $_POST['new_ip_id'];
-$new_cat_id = (integer) $_POST['new_cat_id'];
-$new_expiry_date = $_POST['new_expiry_date'];
-$new_account_id = (integer) $_POST['new_account_id'];
-$new_active = $_POST['new_active'];
-$new_notes = $_POST['new_notes'];
+$sslcid = (int) $_REQUEST['sslcid'];
+$new_domain_id = (int) $_POST['new_domain_id'];
+$new_name = $sanitize->text($_POST['new_name']);
+$new_type_id = (int) $_POST['new_type_id'];
+$new_ip_id = (int) $_POST['new_ip_id'];
+$new_cat_id = (int) $_POST['new_cat_id'];
+$new_expiry_date = $_POST['datepick'];
+$new_account_id = (int) $_POST['new_account_id'];
+$new_active = (int) $_POST['new_active'];
+$new_notes = $sanitize->text($_POST['new_notes']);
 
 // Custom Fields
 $result = $pdo->query("
@@ -88,136 +91,161 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     $date = new DomainMOD\Date();
 
-    if ($date->checkDateFormat($new_expiry_date) && $new_name != "" && $new_domain_id != "" && $new_account_id != "" &&
-        $new_type_id != "" && $new_ip_id != "" && $new_cat_id != "" && $new_domain_id != "0" && $new_account_id != "0"
-        && $new_type_id != "0" && $new_ip_id != "0" && $new_cat_id != "0" && $new_active != '') {
+    if ($date->checkDateFormat($new_expiry_date) && $new_name != "" && $new_domain_id !== 0 && $new_account_id !== 0 &&
+        $new_type_id !== 0 && $new_ip_id !== 0 && $new_cat_id !== 0
+    ) {
 
-        $stmt = $pdo->prepare("
-            SELECT ssl_provider_id, owner_id
-            FROM ssl_accounts
-            WHERE id = :new_account_id");
-        $stmt->bindValue('new_account_id', $new_account_id, PDO::PARAM_INT);
-        $stmt->execute();
-        $result = $stmt->fetch();
+        try {
 
-        if ($result) {
+            $pdo->beginTransaction();
 
-            foreach ($result as $row) {
+            $stmt = $pdo->prepare("
+                SELECT ssl_provider_id, owner_id
+                FROM ssl_accounts
+                WHERE id = :new_account_id");
+            $stmt->bindValue('new_account_id', $new_account_id, PDO::PARAM_INT);
+            $stmt->execute();
+            $result = $stmt->fetch();
+            $stmt->closeCursor();
 
-                $new_ssl_provider_id = $result->ssl_provider_id;
-                $new_owner_id = $result->owner_id;
+            if ($result) {
+
+                foreach ($result as $row) {
+
+                    $new_ssl_provider_id = $result->ssl_provider_id;
+                    $new_owner_id = $result->owner_id;
+
+                }
 
             }
 
-        }
+            $stmt = $pdo->prepare("
+                SELECT id
+                FROM ssl_fees
+                WHERE ssl_provider_id = :new_ssl_provider_id
+                  AND type_id = :new_type_id");
+            $stmt->bindValue('new_ssl_provider_id', $new_ssl_provider_id, PDO::PARAM_INT);
+            $stmt->bindValue('new_type_id', $new_type_id, PDO::PARAM_INT);
+            $stmt->execute();
+            $result = $stmt->fetchColumn();
 
-        $stmt = $pdo->prepare("
-            SELECT id
-            FROM ssl_fees
-            WHERE ssl_provider_id = :new_ssl_provider_id
-              AND type_id = :new_type_id");
-        $stmt->bindValue('new_ssl_provider_id', $new_ssl_provider_id, PDO::PARAM_INT);
-        $stmt->bindValue('new_type_id', $new_type_id, PDO::PARAM_INT);
-        $stmt->execute();
-        $result = $stmt->fetchColumn();
+            if (!$result) {
 
-        if (!$result) {
+                $temp_fee_id = "0";
+                $temp_fee_fixed = "0";
 
-            $temp_fee_id = "0";
-            $temp_fee_fixed = "0";
+            } else {
 
-        } else {
+                $temp_fee_id = $result;
+                $temp_fee_fixed = "1";
 
-            $temp_fee_id = $result;
-            $temp_fee_fixed = "1";
+            }
 
-        }
+            $stmt = $pdo->prepare("
+                SELECT (renewal_fee + misc_fee) AS total_cost
+                FROM ssl_fees
+                WHERE ssl_provider_id = :new_ssl_provider_id
+                  AND type_id = :new_type_id");
+            $stmt->bindValue('new_ssl_provider_id', $new_ssl_provider_id, PDO::PARAM_INT);
+            $stmt->bindValue('new_type_id', $new_type_id, PDO::PARAM_INT);
+            $stmt->execute();
+            $new_total_cost = $stmt->fetchColumn();
 
-        $stmt = $pdo->prepare("
-            SELECT (renewal_fee + misc_fee) AS total_cost
-            FROM ssl_fees
-            WHERE ssl_provider_id = :new_ssl_provider_id
-              AND type_id = :new_type_id");
-        $stmt->bindValue('new_ssl_provider_id', $new_ssl_provider_id, PDO::PARAM_INT);
-        $stmt->bindValue('new_type_id', $new_type_id, PDO::PARAM_INT);
-        $stmt->execute();
-        $new_total_cost = $stmt->fetchColumn();
+            $stmt = $pdo->prepare("
+                UPDATE ssl_certs
+                SET owner_id = :new_owner_id,
+                    ssl_provider_id = :new_ssl_provider_id,
+                    account_id = :new_account_id,
+                    domain_id = :new_domain_id,
+                    `name` = :new_name,
+                    type_id = :new_type_id,
+                    ip_id = :new_ip_id,
+                    cat_id = :new_cat_id,
+                    expiry_date = :new_expiry_date,
+                    fee_id = :temp_fee_id,
+                    total_cost = :new_total_cost,
+                    notes = :new_notes,
+                    active = :new_active,
+                    fee_fixed = :temp_fee_fixed,
+                    update_time = :timestamp
+                WHERE id = :sslcid");
+            $stmt->bindValue('new_owner_id', $new_owner_id, PDO::PARAM_INT);
+            $stmt->bindValue('new_ssl_provider_id', $new_ssl_provider_id, PDO::PARAM_INT);
+            $stmt->bindValue('new_account_id', $new_account_id, PDO::PARAM_INT);
+            $stmt->bindValue('new_domain_id', $new_domain_id, PDO::PARAM_INT);
+            $stmt->bindValue('new_name', $new_name, PDO::PARAM_STR);
+            $stmt->bindValue('new_type_id', $new_type_id, PDO::PARAM_INT);
+            $stmt->bindValue('new_ip_id', $new_ip_id, PDO::PARAM_INT);
+            $stmt->bindValue('new_cat_id', $new_cat_id, PDO::PARAM_INT);
+            $stmt->bindValue('new_expiry_date', $new_expiry_date, PDO::PARAM_STR);
+            $stmt->bindValue('temp_fee_id', $temp_fee_id, PDO::PARAM_INT);
+            $stmt->bindValue('new_total_cost', strval($new_total_cost), PDO::PARAM_STR);
+            $stmt->bindValue('new_notes', $new_notes, PDO::PARAM_LOB);
+            $stmt->bindValue('new_active', $new_active, PDO::PARAM_INT);
+            $stmt->bindValue('temp_fee_fixed', $temp_fee_fixed, PDO::PARAM_INT);
+            $stmt->bindValue('timestamp', $timestamp, PDO::PARAM_STR);
+            $stmt->bindValue('sslcid', $sslcid, PDO::PARAM_INT);
+            $stmt->execute();
 
-        $stmt = $pdo->prepare("
-            UPDATE ssl_certs
-            SET owner_id = :new_owner_id,
-                ssl_provider_id = :new_ssl_provider_id,
-                account_id = :new_account_id,
-                domain_id = :new_domain_id,
-                `name` = :new_name,
-                type_id = :new_type_id,
-                ip_id = :new_ip_id,
-                cat_id = :new_cat_id,
-                expiry_date = :new_expiry_date,
-                fee_id = :temp_fee_id,
-                total_cost = :new_total_cost,
-                notes = :new_notes,
-                active = :new_active,
-                fee_fixed = :temp_fee_fixed,
-                update_time = :timestamp
-            WHERE id = :sslcid");
-        $stmt->bindValue('new_owner_id', $new_owner_id, PDO::PARAM_INT);
-        $stmt->bindValue('new_ssl_provider_id', $new_ssl_provider_id, PDO::PARAM_INT);
-        $stmt->bindValue('new_account_id', $new_account_id, PDO::PARAM_INT);
-        $stmt->bindValue('new_domain_id', $new_domain_id, PDO::PARAM_INT);
-        $stmt->bindValue('new_name', $new_name, PDO::PARAM_STR);
-        $stmt->bindValue('new_type_id', $new_type_id, PDO::PARAM_INT);
-        $stmt->bindValue('new_ip_id', $new_ip_id, PDO::PARAM_INT);
-        $stmt->bindValue('new_cat_id', $new_cat_id, PDO::PARAM_INT);
-        $stmt->bindValue('new_expiry_date', $new_expiry_date, PDO::PARAM_STR);
-        $stmt->bindValue('temp_fee_id', $temp_fee_id, PDO::PARAM_INT);
-        $stmt->bindValue('new_total_cost', strval($new_total_cost), PDO::PARAM_STR);
-        $stmt->bindValue('new_notes', $new_notes, PDO::PARAM_LOB);
-        $stmt->bindValue('new_active', $new_active, PDO::PARAM_INT);
-        $stmt->bindValue('temp_fee_fixed', $temp_fee_fixed, PDO::PARAM_INT);
-        $stmt->bindValue('timestamp', $timestamp, PDO::PARAM_STR);
-        $stmt->bindValue('sslcid', $sslcid, PDO::PARAM_INT);
-        $stmt->execute();
-
-        $sql = "SELECT field_name
+            $result = $pdo->query("
+                SELECT field_name
                 FROM ssl_cert_fields
-                ORDER BY `name`";
-        $result = mysqli_query($dbcon, $sql);
+                ORDER BY `name`")->fetchAll();
 
-        if (mysqli_num_rows($result) > 0) {
+            if ($result) {
 
-            $count = 0;
+                $count = 0;
 
-            while ($row = mysqli_fetch_object($result)) {
+                foreach ($result as $row) {
 
-                $field_array[$count] = $row->field_name;
-                $count++;
+                    $field_array[$count] = $row->field_name;
+                    $count++;
+
+                }
+
+                foreach ($field_array as $field) {
+
+                    $full_field = "new_" . $field;
+
+                    $stmt = $pdo->prepare("
+                        UPDATE ssl_cert_field_data
+                        SET `" . $field . "` = :full_field,
+                            update_time = :timestamp
+                        WHERE ssl_id = :sslcid");
+                    $stmt->bindValue('full_field', ${$full_field}, PDO::PARAM_STR);
+                    $stmt->bindValue('timestamp', $timestamp, PDO::PARAM_STR);
+                    $stmt->bindValue('sslcid', $sslcid, PDO::PARAM_INT);
+                    $stmt->execute();
+
+                }
 
             }
 
-            foreach ($field_array as $field) {
+            $queryB = new DomainMOD\QueryBuild();
 
-                $full_field = "new_" . $field;
+            $sql = $queryB->missingFees('ssl_certs');
+            $_SESSION['s_missing_ssl_fees'] = $system->checkForRows($sql);
 
-                $sql = "UPDATE ssl_cert_field_data
-                        SET `" . $field . "` = '" . mysqli_real_escape_string($dbcon, ${$full_field}) . "',
-                            update_time = '" . $timestamp . "'
-                        WHERE ssl_id = '" . mysqli_real_escape_string($dbcon, $sslcid) . "'";
-                $result = mysqli_query($dbcon, $sql);
+            $pdo->commit();
 
-            }
+            $_SESSION['s_message_success'] .= "SSL Certificate " . $new_name . " updated<BR>";
+
+            header('Location: edit.php?sslcid=' . $sslcid);
+            exit;
+
+        } catch (Exception $e) {
+
+            $pdo->rollback();
+
+            $log_message = 'Unable to update SSL certificate';
+            $log_extra = array('Error' => $e);
+            $log->critical($log_message, $log_extra);
+
+            $_SESSION['s_message_danger'] .= $log_message . '<BR>';
+
+            throw $e;
 
         }
-
-        $_SESSION['s_message_success'] .= "SSL Certificate " . $new_name . " Updated<BR>";
-
-        $queryB = new DomainMOD\QueryBuild();
-
-        $sql = $queryB->missingFees('ssl_certs');
-        $_SESSION['s_missing_ssl_fees'] = $system->checkForRows($sql);
-
-        header('Location: edit.php?sslcid=' . $sslcid);
-        exit;
 
     } else {
 
@@ -228,39 +256,33 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_SESSION['s_message_danger'] .= "The expiry date you entered is invalid<BR>";
         }
 
-        if ($new_domain_id == '' || $new_domain_id == '0') {
+        if ($new_domain_id === 0) {
 
             $_SESSION['s_message_danger'] .= "Choose the domain<BR>";
 
         }
 
-        if ($new_account_id == '' || $new_account_id == '0') {
+        if ($new_account_id === 0) {
 
             $_SESSION['s_message_danger'] .= "Choose the SSL Provider Account<BR>";
 
         }
 
-        if ($new_type_id == '' || $new_type_id == '0') {
+        if ($new_type_id === 0) {
 
             $_SESSION['s_message_danger'] .= "Choose the SSL Type<BR>";
 
         }
 
-        if ($new_ip_id == '' || $new_ip_id == '0') {
+        if ($new_ip_id === 0) {
 
             $_SESSION['s_message_danger'] .= "Choose the IP Address<BR>";
 
         }
 
-        if ($new_cat_id == '' || $new_cat_id == '0') {
+        if ($new_cat_id === 0) {
 
             $_SESSION['s_message_danger'] .= "Choose the Category<BR>";
-
-        }
-
-        if ($new_active == '') {
-
-            $_SESSION['s_message_danger'] .= "Choose the Status<BR>";
 
         }
 
@@ -279,6 +301,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $stmt->bindValue('sslcid', $sslcid, PDO::PARAM_INT);
     $stmt->execute();
     $result = $stmt->fetch();
+    $stmt->closeCursor();
 
     if ($result) {
 
@@ -296,50 +319,71 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 }
 
-if ($del == "1") {
+if ($del === 1) {
 
     $_SESSION['s_message_danger'] .= "Are you sure you want to delete this SSL Certificate?<BR><BR>
         <a href=\"edit.php?sslcid=" . $sslcid . "&really_del=1\">YES, REALLY DELETE THIS SSL CERTIFICATE ACCOUNT</a><BR>";
 
 }
 
-if ($really_del == "1") {
+if ($really_del === 1) {
 
-    $stmt = $pdo->prepare("
-        DELETE FROM ssl_certs
-        WHERE id = :sslcid");
-    $stmt->bindValue('sslcid', $sslcid, PDO::PARAM_INT);
-    $stmt->execute();
+    try {
 
-    $stmt = $pdo->prepare("
-        DELETE FROM ssl_cert_field_data
-        WHERE ssl_id = :sslcid");
-    $stmt->bindValue('sslcid', $sslcid, PDO::PARAM_INT);
-    $stmt->execute();
+        $pdo->beginTransaction();
 
-    $temp_type = $assets->getSslType($new_type_id);
+        $stmt = $pdo->prepare("
+            DELETE FROM ssl_certs
+            WHERE id = :sslcid");
+        $stmt->bindValue('sslcid', $sslcid, PDO::PARAM_INT);
+        $stmt->execute();
 
-    $_SESSION['s_message_success'] .= "SSL Certificate " . $new_name . " (" . $temp_type . ") Deleted<BR>";
+        $stmt = $pdo->prepare("
+            DELETE FROM ssl_cert_field_data
+            WHERE ssl_id = :sslcid");
+        $stmt->bindValue('sslcid', $sslcid, PDO::PARAM_INT);
+        $stmt->execute();
 
-    $system->checkExistingAssets();
+        $temp_type = $assets->getSslType($new_type_id);
 
-    header("Location: index.php");
-    exit;
+        $system->checkExistingAssets();
+
+        $pdo->commit();
+
+        $_SESSION['s_message_success'] .= "SSL Certificate " . $new_name . " (" . $temp_type . ") deleted<BR>";
+
+        header("Location: index.php");
+        exit;
+
+    } catch (Exception $e) {
+
+        $pdo->rollback();
+
+        $log_message = 'Unable to delete SSL certificate';
+        $log_extra = array('Error' => $e);
+        $log->critical($log_message, $log_extra);
+
+        $_SESSION['s_message_danger'] .= $log_message . '<BR>';
+
+        throw $e;
+
+    }
 
 }
 ?>
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
+    <?php require_once DIR_INC . '/layout/date-picker-head.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
 <?php require_once DIR_INC . '/layout/header.inc.php'; ?>
 <?php
 echo $form->showFormTop('');
-echo $form->showInputText('new_name', 'Host / Label (100)', '', $new_name, '100', '', '1', '', '');
-echo $form->showInputText('new_expiry_date', 'Expiry Date (YYYY-MM-DD)', '', $new_expiry_date, '10', '', '1', '', '');
+echo $form->showInputText('new_name', 'Host / Label (100)', '', $unsanitize->text($new_name), '100', '', '1', '', '');
+echo $form->showInputText('datepick', 'Expiry Date (YYYY-MM-DD)', '', $new_expiry_date, '10', '', '1', '', '');
 
 $stmt = $pdo->prepare("
     SELECT id, domain
@@ -449,24 +493,24 @@ echo $form->showDropdownOption('0', 'Expired', $new_active);
 echo $form->showDropdownBottom('');
 
 if ($new_notes != '') {
-    $subtext = '[<a target="_blank" href="notes.php?sslcid=' . htmlentities($sslcid, ENT_QUOTES, 'UTF-8') . '">view full notes</a>]';
+    $subtext = '[<a target="_blank" href="notes.php?sslcid=' . $sslcid . '">view full notes</a>]';
 } else {
     $subtext = '';
 }
-echo $form->showInputTextarea('new_notes', 'Notes', $subtext, $new_notes, '', '', '');
+echo $form->showInputTextarea('new_notes', 'Notes', $subtext, $unsanitize->text($new_notes), '', '', '');
 
-$sql = "SELECT field_name
-        FROM ssl_cert_fields
-        ORDER BY type_id, `name`";
-$result = mysqli_query($dbcon, $sql);
+$result = $pdo->query("
+    SELECT field_name
+    FROM ssl_cert_fields
+    ORDER BY type_id, `name`")->fetchAll();
 
-if (mysqli_num_rows($result) > 0) { ?>
+if ($result) { ?>
 
     <h3>Custom Fields</h3><?php
 
     $count = 0;
 
-    while ($row = mysqli_fetch_object($result)) {
+    foreach ($result as $row) {
 
         $field_array[$count] = $row->field_name;
         $count++;
@@ -475,13 +519,13 @@ if (mysqli_num_rows($result) > 0) { ?>
 
     foreach ($field_array as $field) {
 
-        $sql = "SELECT sf.name, sf.field_name, sf.type_id, sf.description
-                FROM ssl_cert_fields AS sf, custom_field_types AS cft
-                WHERE sf.type_id = cft.id
-                  AND sf.field_name = '" . $field . "'";
-        $result = mysqli_query($dbcon, $sql);
+        $result = $pdo->query("
+            SELECT sf.name, sf.field_name, sf.type_id, sf.description
+            FROM ssl_cert_fields AS sf, custom_field_types AS cft
+            WHERE sf.type_id = cft.id
+              AND sf.field_name = '" . $field . "'")->fetchAll();
 
-        while ($row = mysqli_fetch_object($result)) {
+        foreach ($result as $row) {
 
             if (${'new_' . $field}) {
 
@@ -489,16 +533,15 @@ if (mysqli_num_rows($result) > 0) { ?>
 
             } else {
 
-                $sql_data = "SELECT " . $row->field_name . "
-                             FROM ssl_cert_field_data
-                             WHERE ssl_id = '" . mysqli_real_escape_string($dbcon, $sslcid) . "'";
-                $result_data = mysqli_query($dbcon, $sql_data);
-
-                while ($row_data = mysqli_fetch_object($result_data)) {
-
-                    $field_data = $row_data->{$row->field_name};
-
-                }
+                $stmt = $pdo->prepare("
+                    SELECT " . $row->field_name . "
+                    FROM ssl_cert_field_data
+                    WHERE ssl_id = :sslcid");
+                $stmt->bindValue('sslcid', $sslcid, PDO::PARAM_INT);
+                $stmt->execute();
+                $result_data = $stmt->fetch();
+                $stmt->closeCursor();
+                $field_data = $result_data->{$row->field_name};
 
             }
 
@@ -534,7 +577,8 @@ echo $form->showInputHidden('sslcid', $sslcid);
 echo $form->showSubmitButton('Save', '', '');
 echo $form->showFormBottom('');
 ?>
-<BR><a href="edit.php?sslcid=<?php echo urlencode($sslcid); ?>&del=1">DELETE THIS SSL CERTIFICATE</a>
+<BR><a href="edit.php?sslcid=<?php echo $sslcid; ?>&del=1">DELETE THIS SSL CERTIFICATE</a>
 <?php require_once DIR_INC . '/layout/footer.inc.php'; ?>
+<?php require_once DIR_INC . '/layout/date-picker-footer.inc.php'; ?>
 </body>
 </html>

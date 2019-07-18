@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Goal.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,18 +23,18 @@ namespace DomainMOD;
 
 class Goal
 {
-    public $system;
+    public $deeb;
     public $time;
 
     public function __construct()
     {
-        $this->system = new System();
+        $this->deeb = Database::getInstance();
         $this->time = new Time();
     }
 
     public function installation()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $act_software_version = SOFTWARE_VERSION;
         $act_ip_address = $this->getIp();
@@ -57,7 +57,7 @@ class Goal
 
     public function upgrade($act_old_version)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $act_new_version = SOFTWARE_VERSION;
         $act_ip_address = $this->getIp();
@@ -81,7 +81,7 @@ class Goal
 
     public function remote()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $result = $pdo->query("
             SELECT id, type, old_version, new_version, ip, agent, `language`, insert_time
@@ -137,15 +137,8 @@ class Goal
 
     public function triggerGoal($goal_url)
     {
-        $context = stream_context_create(array('https' => array('header' => 'Connection: close\r\n')));
-        $result = file_get_contents($goal_url, false, $context);
-        if (!$result) {
-            $handle = curl_init();
-            curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($handle, CURLOPT_URL, $goal_url);
-            curl_exec($handle);
-            curl_close($handle);
-        }
+        $system = new System();
+        $system->getFileContents('Log Goal', 'error', $goal_url);
     }
 
 } //@formatter:on

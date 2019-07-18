@@ -3,7 +3,7 @@
  * /classes/DomainMOD/GoDaddy.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -29,14 +29,14 @@ class GoDaddy
     public function __construct()
     {
         $this->format = new Format();
-        $this->log = new Log('godaddy.class');
+        $this->log = new Log('class.godaddy');
     }
 
     public function getApiUrl($domain, $command)
     {
         $base_url = 'https://api.godaddy.com/v1/';
         if ($command == 'domainlist') {
-            return $base_url . 'domains?statusGroups=VISIBLE&limit=10000';
+            return $base_url . 'domains?statusGroups=VISIBLE&limit=1000';
         } elseif ($command == 'info') {
             return $base_url . 'domains/' . $domain;
         } else {
@@ -50,7 +50,9 @@ class GoDaddy
         curl_setopt($handle, CURLOPT_HTTPHEADER, array(
             'Authorization: sso-key ' . $api_key . ':' . $api_secret,
             'Accept: application/json'));
-        curl_setopt($handle, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYPEER, false);
         $result = curl_exec($handle);
         curl_close($handle);
         return $result;
@@ -98,7 +100,13 @@ class GoDaddy
         $array_results = $this->convertToArray($api_results);
 
         // confirm that the api call was successful
-        if (isset($array_results['domain'])) {
+        /*
+         * The $array_results['expires'] and $array_results['contactRegistrant']['nameFirst'] checks were put in place
+         * because GoDaddy's domain list API command returns domains that aren't necessarily registered with them (such
+         * as domains that are registered elsewhere but the DNS is hosted at GoDaddy). These additional checks ensure
+         * that the domain details will only be processed for domains that are actually registered at GoDaddy.
+         */
+        if (isset($array_results['domain']) && isset($array_results['expires']) && isset($array_results['contactRegistrant']['nameFirst'])) {
 
             // get expiration date
             $expiration_date = substr($array_results['expires'], 0, 10);
@@ -115,6 +123,13 @@ class GoDaddy
             $autorenewal_result = (string) $array_results['renewAuto'];
             $autorenewal_status = $this->processAutorenew($autorenewal_result);
 
+        } elseif (isset($array_results['domain']) && !isset($array_results['expires']) && !isset($array_results['contactRegistrant']['nameFirst'])) {
+
+            $domain_status = 'invalid';
+            $log_message = 'Invalid domain (not registered at GoDaddy)';
+            $log_extra = array('Domain' => $domain, 'API Key' => $this->format->obfusc($api_key), 'API Secret' => $this->format->obfusc($api_secret));
+            $this->log->warning($log_message, $log_extra);
+
         } else {
 
             $log_message = 'Unable to get domain details';
@@ -123,7 +138,7 @@ class GoDaddy
 
         }
 
-        return array($expiration_date, $dns_servers, $privacy_status, $autorenewal_status);
+        return array($domain_status, $expiration_date, $dns_servers, $privacy_status, $autorenewal_status);
     }
 
     public function convertToArray($api_result)

@@ -3,7 +3,7 @@
  * /admin/dw/list-zones.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,31 +22,25 @@
 <?php
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
+require_once DIR_INC . '/config.inc.php';
+require_once DIR_INC . '/software.inc.php';
 require_once DIR_ROOT . '/vendor/autoload.php';
 
+$deeb = DomainMOD\Database::getInstance();
 $system = new DomainMOD\System();
-$error = new DomainMOD\Error();
 $layout = new DomainMOD\Layout();
 $time = new DomainMOD\Time();
 
 require_once DIR_INC . '/head.inc.php';
-require_once DIR_INC . '/config.inc.php';
-require_once DIR_INC . '/software.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/dw-list-zones.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
 $system->authCheck();
 $system->checkAdminUser($_SESSION['s_is_admin']);
+$pdo = $deeb->cnxx;
 
 $domain = $_GET['domain'];
-$export_data = $_GET['export_data'];
-
-// Search Navigation Variables
-$numBegin = $_REQUEST['numBegin'];
-$begin = $_REQUEST['begin'];
-$num = $_REQUEST['num'];
+$export_data = (int) $_GET['export_data'];
 
 if ($_SESSION['s_dw_view_all'] == "1") {
 
@@ -63,26 +57,29 @@ if ($_SESSION['s_dw_view_all'] == "1") {
 
 if ($domain != "") {
 
-    $sql = "SELECT z.*, s.id AS dw_server_id, s.name AS dw_server_name, s.host AS dw_server_host
-            FROM dw_dns_zones AS z, dw_servers AS s
-            WHERE z.server_id = s.id
-              AND z.domain = '" . mysqli_real_escape_string($dbcon, $domain) . "'" .
-              $where_clause . "
-            ORDER BY s.name, z.zonefile, z.domain";
+    $stmt = $pdo->prepare("
+        SELECT z.*, s.id AS dw_server_id, s.name AS dw_server_name, s.host AS dw_server_host
+        FROM dw_dns_zones AS z, dw_servers AS s
+        WHERE z.server_id = s.id
+          AND z.domain = :domain" .
+          $where_clause . "
+        ORDER BY s.name, z.zonefile, z.domain");
+    $stmt->bindValue('domain', $domain, PDO::PARAM_STR);
+    $stmt->execute();
+    $result = $stmt->fetchAll();
 
 } else {
 
-    $sql = "SELECT z.*, s.id AS dw_server_id, s.name AS dw_server_name, s.host AS dw_server_host
-            FROM dw_dns_zones AS z, dw_servers AS s
-            WHERE z.server_id = s.id" .
-              $where_clause . "
-            ORDER BY s.name, z.zonefile, z.domain";
+    $result = $pdo->query("
+        SELECT z.*, s.id AS dw_server_id, s.name AS dw_server_name, s.host AS dw_server_host
+        FROM dw_dns_zones AS z, dw_servers AS s
+        WHERE z.server_id = s.id" .
+          $where_clause . "
+        ORDER BY s.name, z.zonefile, z.domain")->fetchAll();
 
 }
 
-if ($export_data == "1") {
-
-    $result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
+if ($export_data === 1) {
 
     $export = new DomainMOD\Export();
     $export_file = $export->openFile('dw_dns_zones', strtotime($time->stamp()));
@@ -94,29 +91,27 @@ if ($export_data == "1") {
 
     if ($domain != "") {
 
-        $sql_total_records = "SELECT count(*) AS total_dns_record_count
-                              FROM dw_dns_records
-                              WHERE domain = '" . mysqli_real_escape_string($dbcon, $domain) . "'" .
-                                $where_clause_no_join;
+        $stmt = $pdo->prepare("
+            SELECT count(*)
+            FROM dw_dns_records
+            WHERE domain = :domain" .
+            $where_clause_no_join);
+        $stmt->bindValue('domain', $domain, PDO::PARAM_STR);
+        $stmt->execute();
+        $total_records_temp = $stmt->fetchColumn();
 
     } else {
 
-        $sql_total_records = "SELECT count(*) AS total_dns_record_count
-                              FROM dw_dns_records" .
-                              $where_clause_no_join_first_line;
-
-    }
-    $result_total_records = mysqli_query($dbcon, $sql_total_records);
-
-    while ($row_total_dns_record_count = mysqli_fetch_object($result_total_records)) {
-
-        $total_records_temp = $row_total_dns_record_count->total_dns_record_count;
+        $total_records_temp = $pdo->query("
+            SELECT count(*)
+            FROM dw_dns_records" .
+            $where_clause_no_join_first_line)->fetchColumn();
 
     }
 
     $row_contents = array(
         'Number of DNS Zones:',
-        number_format(mysqli_num_rows($result))
+        number_format(count($result))
     );
     $export->writeRow($export_file, $row_contents);
 
@@ -169,18 +164,18 @@ if ($export_data == "1") {
     );
     $export->writeRow($export_file, $row_contents);
 
-    if (mysqli_num_rows($result) > 0) {
+    if ($result) {
 
-        while ($row_dw_dns_zone_temp = mysqli_fetch_object($result)) {
+        foreach ($result as $row_dw_dns_zone_temp) {
 
-            $sql_get_records = "SELECT *
-                                FROM dw_dns_records
-                                WHERE server_id = '" . $row_dw_dns_zone_temp->dw_server_id . "'
-                                  AND domain = '" . $row_dw_dns_zone_temp->domain . "'
-                                ORDER BY new_order ASC";
-            $result_get_records = mysqli_query($dbcon, $sql_get_records);
+            $result_get_records = $pdo->query("
+                SELECT *
+                FROM dw_dns_records
+                WHERE server_id = '" . $row_dw_dns_zone_temp->dw_server_id . "'
+                  AND domain = '" . $row_dw_dns_zone_temp->domain . "'
+                ORDER BY new_order ASC")->fetchAll();
 
-            while ($row_get_records = mysqli_fetch_object($result_get_records)) {
+            foreach ($result_get_records as $row_get_records) {
 
                 $row_contents = array(
                     $row_dw_dns_zone_temp->dw_server_name,
@@ -224,15 +219,13 @@ if ($export_data == "1") {
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
 <?php require_once DIR_INC . '/layout/header.inc.php'; ?>
 <?php
-$result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
-
-if (mysqli_num_rows($result) == 0) {
+if (!$result) {
 
     echo "Your search returned 0 results.";
 
@@ -252,7 +245,7 @@ if (mysqli_num_rows($result) == 0) {
         </thead>
         <tbody><?php
 
-        while ($row = mysqli_fetch_object($result)) { ?>
+        foreach ($result as $row) { ?>
 
             <tr>
                 <td></td>

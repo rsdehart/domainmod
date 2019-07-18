@@ -3,7 +3,7 @@
  * /admin/users/index.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,34 +22,32 @@
 <?php
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
+require_once DIR_INC . '/config.inc.php';
+require_once DIR_INC . '/software.inc.php';
 require_once DIR_ROOT . '/vendor/autoload.php';
 
+$deeb = DomainMOD\Database::getInstance();
 $system = new DomainMOD\System();
-$error = new DomainMOD\Error();
 $layout = new DomainMOD\Layout();
 $time = new DomainMOD\Time();
 
 require_once DIR_INC . '/head.inc.php';
-require_once DIR_INC . '/config.inc.php';
-require_once DIR_INC . '/software.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/admin-users-main.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
 $system->authCheck();
 $system->checkAdminUser($_SESSION['s_is_admin']);
+$pdo = $deeb->cnxx;
 
-$export_data = $_GET['export_data'];
+$export_data = (int) $_GET['export_data'];
 
-$sql = "SELECT u.id, u.first_name, u.last_name, u.username, u.email_address, u.admin, u.read_only, u.active, u.number_of_logins, u.last_login, u.creation_type_id, u.created_by, u.insert_time, u.update_time, us.default_timezone, us.default_currency
-        FROM users AS u, user_settings AS us
-        WHERE u.id = us.user_id
-        ORDER BY u.first_name, u.last_name, u.username, u.email_address";
+$result = $pdo->query("
+    SELECT u.id, u.first_name, u.last_name, u.username, u.email_address, u.admin, u.read_only, u.active, u.number_of_logins, u.last_login, u.creation_type_id, u.created_by, u.insert_time, u.update_time, us.default_timezone, us.default_currency
+    FROM users AS u, user_settings AS us
+    WHERE u.id = us.user_id
+    ORDER BY u.first_name, u.last_name, u.username, u.email_address")->fetchAll();
 
-if ($export_data == '1') {
-
-    $result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
+if ($export_data === 1) {
 
     $export = new DomainMOD\Export();
     $export_file = $export->openFile('user_list', strtotime($time->stamp()));
@@ -78,9 +76,9 @@ if ($export_data == '1') {
     );
     $export->writeRow($export_file, $row_contents);
 
-    if (mysqli_num_rows($result) > 0) {
+    if ($result) {
 
-        while ($row = mysqli_fetch_object($result)) {
+        foreach ($result as $row) {
 
             if ($row->admin == '1') {
 
@@ -151,7 +149,7 @@ if ($export_data == '1') {
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
@@ -160,42 +158,43 @@ Below is a list of all users that have access to <?php echo SOFTWARE_TITLE; ?>.<
 <a href="add.php"><?php echo $layout->showButton('button', 'Add User'); ?></a>
 <a href="index.php?export_data=1"><?php echo $layout->showButton('button', 'Export'); ?></a><BR><BR><?php
 
-$result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
+if ($result) { ?>
 
-if (mysqli_num_rows($result) > 0) { ?>
-
-<table id="<?php echo $slug; ?>" class="<?php echo $datatable_class; ?>">
-    <thead>
-    <tr>
-        <th width="20px"></th>
-        <th>User</th>
-        <th>Username</th>
-        <th>Email</th>
-    </tr>
-    </thead>
-    <tbody><?php
-
-    while ($row = mysqli_fetch_object($result)) { ?>
-
+    <table id="<?php echo $slug; ?>" class="<?php echo $datatable_class; ?>">
+        <thead>
         <tr>
-        <td></td>
-        <td>
-            <a <?php if ($row->active != '1') { ?>style="text-decoration: line-through;" <?php } ?>href="edit.php?uid=<?php echo $row->id; ?>"><?php echo $row->first_name; ?>&nbsp;<?php echo $row->last_name; ?></a><?php if ($row->admin == '1') echo "&nbsp;&nbsp;<strong>A</strong>"; ?><?php if ($row->read_only == '1') echo "&nbsp;&nbsp;<strong>R</strong>"; ?>
-        </td>
-        <td>
-            <a href="edit.php?uid=<?php echo $row->id; ?>"><?php echo $row->username; ?></a>
-        </td>
-        <td>
-            <a href="edit.php?uid=<?php echo $row->id; ?>"><?php echo $row->email_address; ?></a>
-        </td>
-        </tr><?php
+            <th width="20px"></th>
+            <th>User</th>
+            <th>Username</th>
+            <th>Email</th>
+        </tr>
+        </thead>
+        <tbody><?php
 
-    } ?>
+        foreach ($result as $row) { ?>
 
-    </tbody>
-</table>
+            <tr>
+            <td></td>
+            <td>
+                <a <?php if ($row->active != '1') { ?>style="text-decoration: line-through;"
+                   <?php } ?>href="edit.php?uid=<?php echo $row->id; ?>"><?php echo $row->first_name; ?>
+                    &nbsp;<?php echo $row->last_name; ?></a><?php if ($row->admin == '1') echo "&nbsp;&nbsp;<strong>A</strong>"; ?><?php if ($row->read_only == '1') echo "&nbsp;&nbsp;<strong>R</strong>"; ?>
+            </td>
+            <td>
+                <a href="edit.php?uid=<?php echo $row->id; ?>"><?php echo $row->username; ?></a>
+            </td>
+            <td>
+                <a href="edit.php?uid=<?php echo $row->id; ?>"><?php echo $row->email_address; ?></a>
+            </td>
+            </tr><?php
 
-    <strong>A</strong> = Admin&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>R</strong> = Read-Only&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="text-decoration: line-through;">STRIKE</span> = Inactive<?php
+        } ?>
+
+        </tbody>
+    </table>
+
+    <strong>A</strong> = Admin&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+    <strong>R</strong> = Read-Only&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="text-decoration: line-through;">STRIKE</span> = Inactive<?php
 
 } ?>
 <?php require_once DIR_INC . '/layout/footer.inc.php'; ?>

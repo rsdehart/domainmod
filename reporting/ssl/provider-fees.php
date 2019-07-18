@@ -3,7 +3,7 @@
  * /reporting/ssl/provider-fees.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,64 +22,62 @@
 <?php
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
+require_once DIR_INC . '/config.inc.php';
+require_once DIR_INC . '/software.inc.php';
 require_once DIR_ROOT . '/vendor/autoload.php';
 
+$deeb = DomainMOD\Database::getInstance();
 $system = new DomainMOD\System();
-$error = new DomainMOD\Error();
 $layout = new DomainMOD\Layout;
 $time = new DomainMOD\Time();
 $reporting = new DomainMOD\Reporting();
 $currency = new DomainMOD\Currency();
 
 require_once DIR_INC . '/head.inc.php';
-require_once DIR_INC . '/config.inc.php';
-require_once DIR_INC . '/software.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/reporting-ssl-fees.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
 $system->authCheck();
+$pdo = $deeb->cnxx;
 
-$export_data = $_GET['export_data'];
+$export_data = (int) $_GET['export_data'];
 $all = $_GET['all'];
 
 if ($all == "1") {
 
-    $sql = "SELECT sslp.id, sslp.name AS ssl_provider, sslt.id AS type_id, sslt.type, f.id AS fee_id, f.initial_fee,
-                f.renewal_fee, f.misc_fee, f.insert_time, f.update_time, c.currency, c.symbol, c.symbol_order,
-                c.symbol_space
-            FROM ssl_providers AS sslp, ssl_fees AS f, currencies AS c, ssl_cert_types AS sslt
-            WHERE sslp.id = f.ssl_provider_id
-              AND f.currency_id = c.id
-              AND f.type_id = sslt.id
-            GROUP BY sslp.name, sslt.type
-            ORDER BY sslp.name, sslt.type";
+    $result = $pdo->query("
+        SELECT sslp.id, sslp.name AS ssl_provider, sslt.id AS type_id, sslt.type, f.id AS fee_id, f.initial_fee,
+            f.renewal_fee, f.misc_fee, f.insert_time, f.update_time, c.currency, c.symbol, c.symbol_order,
+            c.symbol_space
+        FROM ssl_providers AS sslp, ssl_fees AS f, currencies AS c, ssl_cert_types AS sslt
+        WHERE sslp.id = f.ssl_provider_id
+          AND f.currency_id = c.id
+          AND f.type_id = sslt.id
+        GROUP BY sslp.name, sslt.type
+        ORDER BY sslp.name, sslt.type")->fetchAll();
 
 } else {
 
-    $sql = "SELECT sslp.id, sslp.name AS ssl_provider, sslt.id AS type_id, sslt.type, f.id AS fee_id, f.initial_fee,
-                f.renewal_fee, f.misc_fee, f.insert_time, f.update_time, c.currency, c.symbol, c.symbol_order,
-                c.symbol_space
-            FROM ssl_providers AS sslp, ssl_certs AS sslc, ssl_fees AS f, currencies AS c, ssl_cert_types AS sslt
-            WHERE sslp.id = sslc.ssl_provider_id
-              AND sslc.fee_id = f.id
-              AND f.currency_id = c.id
-              AND sslc.type_id = sslt.id
-              AND sslc.active NOT IN ('0')
-            GROUP BY sslp.name, sslt.type
-            ORDER BY sslp.name, sslt.type";
+    $result = $pdo->query("
+        SELECT sslp.id, sslp.name AS ssl_provider, sslt.id AS type_id, sslt.type, f.id AS fee_id, f.initial_fee,
+            f.renewal_fee, f.misc_fee, f.insert_time, f.update_time, c.currency, c.symbol, c.symbol_order,
+            c.symbol_space
+        FROM ssl_providers AS sslp, ssl_certs AS sslc, ssl_fees AS f, currencies AS c, ssl_cert_types AS sslt
+        WHERE sslp.id = sslc.ssl_provider_id
+          AND sslc.fee_id = f.id
+          AND f.currency_id = c.id
+          AND sslc.type_id = sslt.id
+          AND sslc.active NOT IN ('0')
+        GROUP BY sslp.name, sslt.type
+        ORDER BY sslp.name, sslt.type")->fetchAll();
 
 }
 
-$result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
-$total_rows = mysqli_num_rows($result);
+$total_rows = count($result);
 
 if ($total_rows > 0) {
 
-    if ($export_data == "1") {
-
-        $result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
+    if ($export_data === 1) {
 
         $export = new DomainMOD\Export();
 
@@ -129,9 +127,9 @@ if ($total_rows > 0) {
         $new_type = "";
         $last_type = "";
 
-        if (mysqli_num_rows($result) > 0) {
+        if ($result) {
 
-            while ($row = mysqli_fetch_object($result)) {
+            foreach ($result as $row) {
 
                 $new_ssl_provider = $row->ssl_provider;
                 $new_type = $row->type;
@@ -155,18 +153,12 @@ if ($total_rows > 0) {
                 $row_contents[$count++] = $row->misc_fee;
                 $row_contents[$count++] = $row->currency;
 
-                $sql_ssl_count = "SELECT count(*) AS total_ssl_count
-                                  FROM ssl_certs
-                                  WHERE ssl_provider_id = '" . $row->id . "'
-                                    AND fee_id = '" . $row->fee_id . "'
-                                    AND active NOT IN ('0')";
-                $result_ssl_count = mysqli_query($dbcon, $sql_ssl_count);
-
-                while ($row_ssl_count = mysqli_fetch_object($result_ssl_count)) {
-
-                    $row_contents[$count++] = $row_ssl_count->total_ssl_count;
-
-                }
+                $row_contents[$count++] = $pdo->query("
+                    SELECT count(*)
+                    FROM ssl_certs
+                    WHERE ssl_provider_id = '" . $row->id . "'
+                      AND fee_id = '" . $row->fee_id . "'
+                      AND active NOT IN ('0')")->fetchColumn();
 
                 $row_contents[$count++] = $time->toUserTimezone($row->insert_time);
                 $row_contents[$count++] = $time->toUserTimezone($row->update_time);
@@ -187,12 +179,11 @@ if ($total_rows > 0) {
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
 <?php require_once DIR_INC . '/layout/header.inc.php'; ?>
-<BR>
 <a href="provider-fees.php?all=1"><?php echo $layout->showButton('button', 'View All'); ?></a>&nbsp;&nbsp;or&nbsp;<a href="provider-fees.php?all=0"><?php echo $layout->showButton('button', 'Active Only'); ?></a>
 <?php if ($total_rows > 0) { //@formatter:off ?>
           <BR><BR><a href="provider-fees.php?export_data=1&all=<?php echo urlencode($all); ?>"><?php echo $layout->showButton('button', 'Export'); ?></a>
@@ -221,12 +212,12 @@ if ($total_rows > 0) {
         $new_type = "";
         $last_type = "";
 
-        while ($row = mysqli_fetch_object($result)) {
+        foreach ($result as $row) {
 
             $new_ssl_provider = $row->ssl_provider;
             $new_type = $row->type;
 
-            if ($row->update_time == "0000-00-00 00:00:00") {
+            if ($row->update_time == '1970-01-01 00:00:00') {
                 $row->update_time = $row->insert_time;
             }
             $last_updated = $time->toUserTimezone(date('Y-m-d', strtotime($row->update_time)));
@@ -260,31 +251,27 @@ if ($total_rows > 0) {
                     <td><?php echo $row->currency; ?></td>
                     <td>
                         <?php
-                        $sql_ssl_count = "SELECT count(*) AS total_ssl_count
-                                      FROM ssl_certs
-                                      WHERE ssl_provider_id = '" . $row->id . "'
-                                        AND fee_id = '" . $row->fee_id . "'
-                                        AND active NOT IN ('0')";
-                        $result_ssl_count = mysqli_query($dbcon, $sql_ssl_count);
-                        while ($row_ssl_count = mysqli_fetch_object($result_ssl_count)) {
+                        $result_ssl_count = $pdo->query("
+                            SELECT count(*)
+                            FROM ssl_certs
+                            WHERE ssl_provider_id = '" . $row->id . "'
+                              AND fee_id = '" . $row->fee_id . "'
+                              AND active NOT IN ('0')")->fetchColumn();
 
-                            if ($row_ssl_count->total_ssl_count == 0) {
+                        if (!$result_ssl_count) {
 
-                                echo "-";
+                            echo "-";
 
-                            } else {
+                        } else {
 
-                                echo "<a href=\"../../ssl/index.php?sslpid=" . $row->id .
-                                    "&ssltid=" . $row->type_id . "\">" . $row_ssl_count->total_ssl_count . "</a>";
-
-                            }
+                            echo "<a href=\"../../ssl/index.php?sslpid=" . $row->id .
+                                "&ssltid=" . $row->type_id . "\">" . $result_ssl_count . "</a>";
 
                         } ?>
                     </td>
                     <td><?php echo $last_updated; ?></td>
-                </tr>
+                </tr><?php
 
-                <?php
                 $last_ssl_provider = $row->ssl_provider;
                 $last_type = $row->type;
 
@@ -317,24 +304,21 @@ if ($total_rows > 0) {
                     <td><?php echo $row->currency; ?></td>
                     <td>
                         <?php
-                        $sql_ssl_count = "SELECT count(*) AS total_ssl_count
-                                      FROM ssl_certs
-                                      WHERE ssl_provider_id = '" . $row->id . "'
-                                        AND fee_id = '" . $row->fee_id . "'
-                                        AND active NOT IN ('0')";
-                        $result_ssl_count = mysqli_query($dbcon, $sql_ssl_count);
-                        while ($row_ssl_count = mysqli_fetch_object($result_ssl_count)) {
+                        $result_ssl_count = $pdo->query("
+                            SELECT count(*)
+                            FROM ssl_certs
+                            WHERE ssl_provider_id = '" . $row->id . "'
+                              AND fee_id = '" . $row->fee_id . "'
+                              AND active NOT IN ('0')")->fetchColumn();
 
-                            if ($row_ssl_count->total_ssl_count == 0) {
+                        if (!$result_ssl_count) {
 
-                                echo "-";
+                            echo "-";
 
-                            } else {
+                        } else {
 
-                                echo "<a href=\"../../ssl/index.php?sslpid=" . $row->id .
-                                    "&ssltid=" . $row->type_id . "\">" . $row_ssl_count->total_ssl_count . "</a>";
-
-                            }
+                            echo "<a href=\"../../ssl/index.php?sslpid=" . $row->id .
+                                "&ssltid=" . $row->type_id . "\">" . $result_ssl_count . "</a>";
 
                         } ?>
                     </td>

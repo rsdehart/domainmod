@@ -3,7 +3,7 @@
  * /update.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,29 +22,29 @@
 <?php
 require_once __DIR__ . '/_includes/start-session.inc.php';
 require_once __DIR__ . '/_includes/init.inc.php';
-
-require_once DIR_ROOT . '/vendor/autoload.php';
-
-$system = new DomainMOD\System();
-$error = new DomainMOD\Error();
-$time = new DomainMOD\Time();
-$goal = new DomainMOD\Goal();
-
-require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/software.inc.php';
-require_once DIR_INC . '/debug.inc.php';
-require_once DIR_INC . '/database.inc.php';
+require_once DIR_ROOT . '/vendor/autoload.php';
 
-$pdo = $system->db();
+$deeb = DomainMOD\Database::getInstance();
+$goal = new DomainMOD\Goal();
+$log = new DomainMOD\Log('/update.php');
+$system = new DomainMOD\System();
+$time = new DomainMOD\Time();
+$upgrade = new DomainMOD\Upgrade();
+
+require_once DIR_INC . '/head.inc.php';
+require_once DIR_INC . '/debug.inc.php';
 
 $current_db_version = $system->getDbVersion();
+$pdo = $deeb->cnxx;
 
 $message_danger_cli = '';
 $message_success_cli = '';
 
 if ($current_db_version !== SOFTWARE_VERSION) {
 
+    $timestamp = $time->stamp();
     require_once DIR_INC . '/update.inc.php';
 
 }

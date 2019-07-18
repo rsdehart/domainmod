@@ -3,7 +3,7 @@
  * /reporting/ssl/cost-by-ip-address.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,29 +22,27 @@
 <?php //@formatter:off
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
-require_once DIR_ROOT . '/vendor/autoload.php';
-
-$system = new DomainMOD\System();
-$error = new DomainMOD\Error();
-$layout = new DomainMOD\Layout;
-$time = new DomainMOD\Time();
-$reporting = new DomainMOD\Reporting();
-$currency = new DomainMOD\Currency();
-$form = new DomainMOD\Form();
-$date = new DomainMOD\Date();
-
-require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/software.inc.php';
+require_once DIR_ROOT . '/vendor/autoload.php';
+
+$deeb = DomainMOD\Database::getInstance();
+$system = new DomainMOD\System();
+$layout = new DomainMOD\Layout;
+$date = new DomainMOD\Date();
+$time = new DomainMOD\Time();
+$form = new DomainMOD\Form();
+$reporting = new DomainMOD\Reporting();
+$currency = new DomainMOD\Currency();
+
+require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/reporting-ssl-cost-by-ip.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
 $system->authCheck();
+$pdo = $deeb->cnxx;
 
-$export_data = $_GET['export_data'];
-$all = $_GET['all'];
+$export_data = (int) $_GET['export_data'];
 $daterange = $_REQUEST['daterange'];
 
 list($new_start_date, $new_end_date) = $date->splitAndCheckRange($daterange);
@@ -60,40 +58,41 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     }
 
-    $all = '0';
-
 }
 
-$range_string = $reporting->getRangeString($all, 'sslc.expiry_date', $new_start_date, $new_end_date);
+$range_string = $reporting->getRangeString('sslc.expiry_date', $new_start_date, $new_end_date);
 
-$sql = "SELECT ip.id, ip.name, ip.ip, ip.rdns, SUM(sslc.total_cost * cc.conversion) AS total_cost, count(*) AS number_of_certs
-        FROM ssl_certs AS sslc, ssl_fees AS f, currencies AS c, currency_conversions AS cc, ip_addresses AS ip
-        WHERE sslc.fee_id = f.id
-          AND f.currency_id = c.id
-          AND c.id = cc.currency_id
-          AND sslc.ip_id = ip.id
-          AND sslc.active NOT IN ('0')
-          AND cc.user_id = '" . $_SESSION['s_user_id'] . "'
-          " . $range_string . "
-        GROUP BY ip.name
-        ORDER BY ip.name";
-$result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
-$total_rows = mysqli_num_rows($result);
+$result = $pdo->query("
+    SELECT ip.id, ip.name, ip.ip, ip.rdns, SUM(sslc.total_cost * cc.conversion) AS total_cost, count(*) AS number_of_certs
+    FROM ssl_certs AS sslc, ssl_fees AS f, currencies AS c, currency_conversions AS cc, ip_addresses AS ip
+    WHERE sslc.fee_id = f.id
+      AND f.currency_id = c.id
+      AND c.id = cc.currency_id
+      AND sslc.ip_id = ip.id
+      AND sslc.active NOT IN ('0')
+      AND cc.user_id = '" . $_SESSION['s_user_id'] . "'" .
+      $range_string . "
+    GROUP BY ip.name
+    ORDER BY ip.name")->fetchAll();
 
-$sql_grand_total = "SELECT SUM(sslc.total_cost * cc.conversion) AS grand_total, count(*) AS number_of_certs_total
-                    FROM ssl_certs AS sslc, ssl_fees AS f, currencies AS c, currency_conversions AS cc, ip_addresses AS ip
-                    WHERE sslc.fee_id = f.id
-                      AND f.currency_id = c.id
-                      AND c.id = cc.currency_id
-                      AND sslc.ip_id = ip.id
-                      AND sslc.active NOT IN ('0')
-                      AND cc.user_id = '" . $_SESSION['s_user_id'] . "'
-                      " . $range_string . "";
-$result_grand_total = mysqli_query($dbcon, $sql_grand_total) or $error->outputSqlError($dbcon, '1', 'ERROR');
+$total_rows = count($result);
 
-while ($row_grand_total = mysqli_fetch_object($result_grand_total)) {
+$result_grand_total = $pdo->query("
+    SELECT SUM(sslc.total_cost * cc.conversion) AS grand_total, count(*) AS number_of_certs_total
+    FROM ssl_certs AS sslc, ssl_fees AS f, currencies AS c, currency_conversions AS cc, ip_addresses AS ip
+    WHERE sslc.fee_id = f.id
+      AND f.currency_id = c.id
+      AND c.id = cc.currency_id
+      AND sslc.ip_id = ip.id
+      AND sslc.active NOT IN ('0')
+      AND cc.user_id = '" . $_SESSION['s_user_id'] . "'" .
+      $range_string)->fetchAll();
+
+foreach ($result_grand_total as $row_grand_total) {
+
     $grand_total = $row_grand_total->grand_total;
     $number_of_certs_total = $row_grand_total->number_of_certs_total;
+
 }
 
 $grand_total = $currency->format($grand_total, $_SESSION['s_default_currency_symbol'],
@@ -101,13 +100,11 @@ $grand_total = $currency->format($grand_total, $_SESSION['s_default_currency_sym
 
 if ($submission_failed != '1' && $total_rows > 0) {
 
-    if ($export_data == '1') {
-
-        $result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
+    if ($export_data === 1) {
 
         $export = new DomainMOD\Export();
 
-        if ($all == '1') {
+        if ($daterange == '') {
 
             $export_file = $export->openFile('ssl_cost_by_ip_address_report_all', strtotime($time->stamp()));
 
@@ -125,13 +122,13 @@ if ($submission_failed != '1' && $total_rows > 0) {
 
         $export->writeBlankRow($export_file);
 
-        if ($all != '1') {
+        if ($daterange == '') {
 
-            $row_contents = array('Date Range:', $new_start_date, $new_end_date);
+            $row_contents = array('Date Range:', 'ALL');
 
         } else {
 
-            $row_contents = array('Date Range:', 'ALL');
+            $row_contents = array('Date Range:', $daterange);
 
         }
         $export->writeRow($export_file, $row_contents);
@@ -161,9 +158,9 @@ if ($submission_failed != '1' && $total_rows > 0) {
         );
         $export->writeRow($export_file, $row_contents);
 
-        if (mysqli_num_rows($result) > 0) {
+        if ($result) {
 
-            while ($row = mysqli_fetch_object($result)) {
+            foreach ($result as $row) {
 
                 $per_cert = $row->total_cost / $row->number_of_certs;
 
@@ -197,7 +194,7 @@ if ($submission_failed != '1' && $total_rows > 0) {
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
     <?php require_once DIR_INC . '/layout/date-range-picker-head.inc.php'; ?>
 </head>
@@ -223,7 +220,7 @@ if ($submission_failed != '1' && $total_rows > 0) { ?>
         </thead>
         <tbody><?php
 
-        while ($row = mysqli_fetch_object($result)) {
+        foreach ($result as $row) {
 
             $per_cert = $row->total_cost / $row->number_of_certs;
 

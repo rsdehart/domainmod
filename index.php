@@ -3,7 +3,7 @@
  * /index.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,63 +22,41 @@
 <?php
 require_once __DIR__ . '/_includes/start-session.inc.php';
 require_once __DIR__ . '/_includes/init.inc.php';
-
+require_once DIR_INC . '/config.inc.php';
+require_once DIR_INC . '/software.inc.php';
 require_once DIR_ROOT . '/vendor/autoload.php';
 
+$deeb = DomainMOD\Database::getInstance();
 $system = new DomainMOD\System();
-$error = new DomainMOD\Error();
-$maint = new DomainMOD\Maintenance();
-$login = new DomainMOD\Login();
 $log = new DomainMOD\Log('/index.php');
+$maint = new DomainMOD\Maintenance();
+$layout = new DomainMOD\Layout();
+$login = new DomainMOD\Login();
 $time = new DomainMOD\Time();
 $form = new DomainMOD\Form();
 $format = new DomainMOD\Format();
 
 require_once DIR_INC . '/head.inc.php';
-require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/config-demo.inc.php';
-require_once DIR_INC . '/software.inc.php';
 require_once DIR_INC . '/debug.inc.php';
-require_once DIR_INC . '/database.inc.php';
+require_once DIR_INC . '/settings/login.inc.php';
 
-$pdo = $system->db();
 $system->loginCheck();
+$pdo = $deeb->cnxx;
 
-list($installation_mode, $result_message) = $system->installCheck();
-$_SESSION['s_installation_mode'] = $installation_mode;
-$_SESSION['s_message_danger'] .= $result_message;
+$_SESSION['s_installation_mode'] = $system->installMode();
 
-if ($_SESSION['s_installation_mode'] == '1') {
+if ($_SESSION['s_installation_mode'] === 1) {
 
-    $page_title = "";
-    $software_section = "installation";
-
-} else {
-
-    $page_title = "";
-    $software_section = "login";
+    header("Location: install/");
+    exit;
 
 }
 
 $new_username = $_POST['new_username'];
 $new_password = $_POST['new_password'];
-$from_install_form = $_POST['from_install_form'];
-$new_install_email = $_POST['new_install_email'];
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && $from_install_form == '1') {
-
-    if ($new_install_email != '') {
-
-        $_SESSION['new_install_email'] = $new_install_email;
-
-        header("Location: install/");
-        exit;
-
-    }
-
-}
-
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_username != "" && $new_password != "" && $from_install_form != '1') {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_username != "" && $new_password != "") {
 
     $_SESSION['s_read_only'] = '1';
 
@@ -92,12 +70,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_username != "" && $new_password
     $stmt->bindValue('new_password', $new_password, PDO::PARAM_STR);
     $stmt->execute();
     $result = $stmt->fetch();
+    $stmt->closeCursor();
 
     if (!$result) {
 
         $log_message = 'Unable to login';
         $log_extra = array('Username' => $new_username, 'Password' => $format->obfusc($new_password));
-        $log->error($log_message, $log_extra);
+        $log->warning($log_message, $log_extra);
 
         $_SESSION['s_message_danger'] .= "Login Failed<BR>";
 
@@ -117,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_username != "" && $new_password
 
 } else {
 
-    if ($_SERVER['REQUEST_METHOD'] == 'POST' && $from_install_form != '1') {
+    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         if ($new_username == "" && $new_password == "") {
 
@@ -130,10 +109,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_username != "" && $new_password
 
         }
 
-    } elseif ($_SERVER['REQUEST_METHOD'] == 'POST' && $from_install_form == '1') {
-
-        $_SESSION['s_message_danger'] .= "<BR>Enter the system/administrator email address<BR>";
-
     }
 
 }
@@ -144,7 +119,7 @@ $new_password = "";
 <head>
     <?php
     if ($page_title != "") { ?>
-        <title><?php echo $system->pageTitle($page_title); ?></title><?php
+        <title><?php echo $layout->pageTitle($page_title); ?></title><?php
     } else { ?>
         <title><?php echo SOFTWARE_TITLE; ?></title><?php
     } ?>
@@ -162,35 +137,21 @@ if ($new_username == "") { ?>
 } ?>
 <?php require_once DIR_INC . '/layout/header-login.inc.php'; ?>
 <?php
-if ($_SESSION['s_installation_mode'] == '0') {
+echo $form->showFormTop('');
 
-    echo $form->showFormTop('');
+if (DEMO_INSTALLATION === true) { ?>
+    <strong>Demo Username:</strong> demo<BR>
+    <strong>Demo Password:</strong> demo<BR><BR><?php
+}
 
-    if (DEMO_INSTALLATION == '1') { ?>
-        <strong>Demo Username:</strong> demo<BR>
-        <strong>Demo Password:</strong> demo<BR><BR><?php
-    }
+echo $form->showInputText('new_username', 'Username', '', $new_username, '20', '', '', '', '');
+echo $form->showInputText('new_password', 'Password', '', '', '255', '1', '', '', '');
+echo $form->showSubmitButton('Login', '', '');
+echo $form->showFormBottom('');
 
-    echo $form->showInputText('new_username', 'Username', '', $new_username, '20', '', '', '', '');
-    echo $form->showInputText('new_password', 'Password', '', '', '255', '1', '', '', '');
-    echo $form->showSubmitButton('Login', '', '');
-    echo $form->showFormBottom('');
+if (DEMO_INSTALLATION === false) { ?>
 
-    if (DEMO_INSTALLATION != '1') { ?>
-
-        <BR><a href="reset.php">Forgot your Password?</a><?php
-
-    }
-
-} else {
-
-    $email_address_text = 'This email address will be used in various locations by the system (such as the FROM address when expiration emails are sent to users), as well as be used as the primary system administrator\'s email address.<BR><BR>Please double check that this address is valid, as it will be required if the system administrator forgets their password.';
-    echo $form->showFormTop('');
-    echo $form->showInputText('new_install_email', 'Enter The System/Administrator Email Address', $email_address_text, $new_install_email, '100', '', '', '', '');
-    echo $form->showSubmitButton('Install DomainMOD', '', '');
-    echo $form->showInputHidden('from_install_form', '1');
-    echo $form->showFormBottom('');
-
+    <BR><a href="reset.php">Forgot your Password?</a><?php
 
 }
 ?>

@@ -1,14 +1,125 @@
 DomainMOD CHANGELOG
 ===================
+v4.13.0    2019-02-09
+- Added Custom Domain Fields to main Domains page
+- Added Custom SSL Fields to main SSL page
+- Added the ability to change Currency Converter
+- Fixed Segment filtering bug when no active domains
+- Switched placeholder date to unix epoch time
+- Switched DEMO_INSTALLATION from integer to boolean
+- Switched $from_cron from integer to boolean
+- Switched 'Upgrade Available' message colour
+- Updated text sanitization to use GJClasses
+- Updated redirect on various settings pages
+- Updated Conversion class
+- Updated sendExpirations & checkExpiring classes
+- Updated Composer
+- Updated GJClasses (0.21.0 -> 0.27.0)
+- Updated PHPMailer (5.2.26 -> 5.2.27)
+
+v4.12.0    2019-02-03
+- Added Sanitize class
+- Added Unsanitize class
+- Added Validate class
+- Added GJClasses Composer package
+- Added Date Picker to Add Domain
+- Added Date Picker to Add SSL Certificate
+- Added Contributing Guidelines
+- Implemented GJClasses for currency conversions
+- Updated Composer
+- Updated Security section of README
+- Updated README
+- Updated copyright
+- Validations to prevent Cross-Site Scripting
+- Validations to prevent SQL Injection
+- Further sanitize user input
+- Linked TLD results to registrar fee edit
+- Showed default currency with Fee heading
+- Refactored each() statements for PHP 7.2 compatibility
+- Moved pageTitle method from System to Layout
+- Removed unused getConversionRate method
+- Removed unused Form class calls
+- Code cleanup
+
+v4.11.01   2018-09-11
+- Implemented Unbuffered Query fix
+
+v4.11.0    2018-08-29
+- Added DW table checks to prevent fatal errors
+- Added MYSQL_ATTR_USE_BUFFERED_QUERY true to PDO options
+- Added MySQL mode declaration during DB connection
+- Added MySQL mode to System Information page
+- Fixed Textarea field display on add SSL page
+- Fixed readOnlyCheck method
+- Fixed add segment URL
+- Fixed search_for search box code
+
+v4.10.0    2018-05-27
+- Added date picker to all expiry date fields
+- Added DIR_TEMP constant to init.inc.php
+- Added /temp folder to .gitignore
+- Added date picker to all expiry date fields
+- Added a short version of the system requirements
+- Added File class
+- Updated how the date range picker functions
+- Updated type casting from (integer) to (int)
+- Fixed CVE-2018-11403
+- Fixed CVE-2018-11404
+
+v4.09.03    2018-04-09
+- Added ipify support for remote IP address reporting
+
+v4.09.02    2018-04-09
+- Updated error_get_last for PHP 5.3 compatibility
+- Updated GoDaddy API domain checks
+- Updated NameSilo API log details
+
+v4.09.01    2018-04-08
+- Fixed upgrade recording
+
+v4.09.00    2018-04-07
+- Added Requirements to README
+- Added Code of Conduct to README
+- Added PHP mail() wrapper
+- Added logging to email sends
+- Expanded the installation process
+- Updated Composer (1.4.1 -> 1.4.2)
+- Updated PHPMailer (5.2.25 -> 5.2.26)
+- Updated PHP Cron Expression Parser (1.2.0 -> 1.2.1)
+- Switched from Fixer.io to Currency Converter API
+- Updated Email Send code
+- Updated remote file retrieval code
+- Updated System Information page with more data
+- Updated logging to include more information
+- Updated Registrar API writeups
+- Various fixes & code cleanup
+
+v4.08.00    2017-11-06
+- Replaced Yahoo Finance API with Fixer.io API
+- Changed GoDaddy domain list limit to 1,000
+- Reordered Dashboard Panels
+- Added lowercaseTlds method to Maintenance class
+- Removed line break from end of version.txt
+
+v4.07.00    2017-10-01
+- Finished converting MySQLi to PDO
+- Implemented database transactions
+- Implemented Database class
+- Implemented Upgrade class
+- Updated Dashboard panels
+- Updated rules in checkFormat method
+- Updated PHPMailer (5.2.23 -> 5.2.25)
+- Fixed expiration email URLs
+
 v4.06.01    2017-06-26
-- Fix bug in installation script
+- Fixed bug in installation script
 
 v4.06.00    2017-06-26
-- Migrate database tables from MyISAM to InnoDB
-- Finish converting main queries to PDO
-- Switch to Composer for PSR-4 Autoloading
-- Update Data Warehouse classes
-- Update DOCTYPE
+- Migrated database tables from MyISAM to InnoDB
+- Finished converting main queries to PDO
+- Switched to Composer for PSR-4 Autoloading
+- Updated Data Warehouse classes
+- Updated DOCTYPE
 - Code cleanup
 
 v4.05.03    2017-06-03

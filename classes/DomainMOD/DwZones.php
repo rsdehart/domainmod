@@ -3,7 +3,7 @@
  * /classes/DomainMOD/DwZones.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,22 +23,22 @@ namespace DomainMOD;
 
 class DwZones
 {
-    public $system;
+    public $deeb;
+    public $dwbuild;
     public $log;
     public $time;
-    public $dwbuild;
 
     public function __construct()
     {
-        $this->system = new System();
-        $this->log = new Log('dwzones.class');
-        $this->time = new Time();
+        $this->deeb = Database::getInstance();
         $this->dwbuild = new DwBuild();
+        $this->log = new Log('class.dwzones');
+        $this->time = new Time();
     }
 
     public function createTable()
     {
-        $this->system->db()->query("
+        $this->deeb->cnxx->query("
             CREATE TABLE IF NOT EXISTS dw_dns_zones (
                 id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
                 server_id INT(10) UNSIGNED NOT NULL,
@@ -56,14 +56,14 @@ class DwZones
 
     public function insertZones($api_results, $server_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
         $array_results = $this->dwbuild->convertToArray($api_results);
 
         if ($array_results['metadata']['result'] !== 1) {
 
             $log_message = 'Unable to retrieve DNS Zones from WHM';
             $log_extra = array('Server ID' => $server_id, 'API Results' => $array_results);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
 
         } else {
 
@@ -91,7 +91,7 @@ class DwZones
 
     public function getInsertedZones($server_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT id, domain
@@ -120,27 +120,42 @@ class DwZones
 
     public function getTotalDwZones()
     {
-        return $this->system->db()->query("
+        return $this->deeb->cnxx->query("
             SELECT count(*)
             FROM `dw_dns_zones`")->fetchColumn();
     }
 
+    public function checkForZoneTable()
+    {
+        return $this->deeb->cnxx->query("SHOW TABLES LIKE 'dw_dns_zones'")->fetchColumn();
+    }
+
     public function checkForZones($domain)
     {
-        $pdo = $this->system->db();
+        $table_exists = $this->checkForZoneTable();
 
-        $stmt = $pdo->prepare("
-            SELECT id
-            FROM dw_dns_zones
-            WHERE domain = :domain
-            LIMIT 1");
-        $stmt->bindValue('domain', $domain, \PDO::PARAM_STR);
-        $stmt->execute();
-        $result = $stmt->fetchColumn();
+        if ($table_exists) {
 
-        if ($result) {
+            $pdo = $this->deeb->cnxx;
 
-            return 1;
+            $stmt = $pdo->prepare("
+                SELECT id
+                FROM dw_dns_zones
+                WHERE domain = :domain
+                LIMIT 1");
+            $stmt->bindValue('domain', $domain, \PDO::PARAM_STR);
+            $stmt->execute();
+            $result = $stmt->fetchColumn();
+
+            if ($result) {
+
+                return 1;
+
+            } else {
+
+                return 0;
+
+            }
 
         } else {
 

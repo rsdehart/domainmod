@@ -3,7 +3,7 @@
  * /_includes/settings/domains-main.inc.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -25,6 +25,9 @@ $breadcrumb = "Domains";
 $software_section = "domains";
 $software_section_logo = "fa-sitemap";
 $slug = "domains-main";
+
+// If the expiry date is visible sort by it, otherwise sort by the domain
+$_SESSION['s_display_domain_expiry_date'] == "1" ? $default_sort_by = '2' : $default_sort_by = '1';
 
 if ($_SESSION['s_system_large_mode'] != '1') {
 
@@ -52,7 +55,7 @@ if ($_SESSION['s_system_large_mode'] != '1') {
                                                targets:   0
                                                } ],
                               "ordering": true,
-                              "order": [[ 2, "asc" ]],
+                              "order": [[ ' . $default_sort_by . ', "asc" ]],
                               "bSortClasses": false,
                               "dom": \'<"top"lif>rt<"bottom"ip><"clear">\',
                               "fnDrawCallback": function (o) {

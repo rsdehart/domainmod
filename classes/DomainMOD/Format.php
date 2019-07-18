@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Format.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -41,17 +41,17 @@ class Format
         $clean_domain_list = $this->stripSpacing($raw_domain_list);
         $domain_list = explode("\r\n", $clean_domain_list);
         $new_domain_list = array();
-        foreach($domain_list as $value) {
+        foreach ($domain_list as $value) {
             $new_domain_list[] = urlencode($this->stripSpacing($value));
         }
         return array_unique($new_domain_list);
     }
 
-    public function formatForMysql($dbcon, $domain_list)
+    public function formatForMysql($domain_list)
     {
         $new_domain_list = array();
-        foreach($domain_list as $value) {
-            $new_domain_list[] = mysqli_real_escape_string($dbcon, $value);
+        foreach ($domain_list as $value) {
+            $new_domain_list[] = $value;
         }
         $list_formatted = implode("\r\n", $new_domain_list);
         $list_formatted = "'" . $list_formatted;

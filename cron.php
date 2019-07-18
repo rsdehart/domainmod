@@ -3,7 +3,7 @@
  * /cron.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -21,27 +21,25 @@
 ?>
 <?php
 require_once __DIR__ . '/_includes/init.inc.php';
-
+require_once DIR_INC . '/config.inc.php';
+require_once DIR_INC . '/software.inc.php';
 require_once DIR_ROOT . '/vendor/autoload.php';
 
-$system = new DomainMOD\System();
-$error = new DomainMOD\Error();
-$maint = new DomainMOD\Maintenance();
 $conversion = new DomainMOD\Conversion();
+$deeb = DomainMOD\Database::getInstance();
+$log = new DomainMOD\Log('/cron.php');
+$maint = new DomainMOD\Maintenance();
 $schedule = new DomainMOD\Scheduler();
+$system = new DomainMOD\System();
 $time = new DomainMOD\Time();
-$log = new DomainMOD\Log('cron');
 
 require_once DIR_INC . '/head.inc.php';
-require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/config-demo.inc.php';
-require_once DIR_INC . '/software.inc.php';
 require_once DIR_INC . '/debug.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
-$pdo = $system->db();
+$pdo = $deeb->cnxx;
 
-if (DEMO_INSTALLATION != '1') {
+if (DEMO_INSTALLATION === false) {
 
     $pdo->query("UPDATE scheduler SET is_running = '0'");
 
@@ -74,7 +72,7 @@ if (DEMO_INSTALLATION != '1') {
             if ($row->slug == 'cleanup') {
 
                 $log_message = '[START] Cleanup Tasks';
-                $log->info($log_message, $log_extra);
+                $log->notice($log_message, $log_extra);
 
                 $schedule->isRunning($row->id);
                 $maint->performCleanup();
@@ -82,26 +80,26 @@ if (DEMO_INSTALLATION != '1') {
                 $schedule->isFinished($row->id);
 
                 $log_message = '[END] Cleanup Tasks';
-                $log->info($log_message);
+                $log->notice($log_message);
 
             } elseif ($row->slug == 'expiration-email') {
 
                 $log_message = '[START] Send Expiration Email';
-                $log->info($log_message, $log_extra);
+                $log->notice($log_message, $log_extra);
 
                 $email = new DomainMOD\Email();
                 $schedule->isRunning($row->id);
-                $email->sendExpirations('1');
+                $email->sendExpirations(true);
                 $schedule->updateTime($row->id, $time->stamp(), $next_run);
                 $schedule->isFinished($row->id);
 
                 $log_message = '[END] Send Expiration Email';
-                $log->info($log_message);
+                $log->notice($log_message);
 
             } elseif ($row->slug == 'update-conversion-rates') {
 
                 $log_message = '[START] Update Conversion Rates';
-                $log->info($log_message, $log_extra);
+                $log->notice($log_message, $log_extra);
 
                 $schedule->isRunning($row->id);
 
@@ -112,13 +110,13 @@ if (DEMO_INSTALLATION != '1') {
                 if (!$result_conversion) {
 
                     $log_message = 'No user currencies found';
-                    $log->error($log_message);
+                    $log->critical($log_message);
 
                 } else {
 
                     foreach ($result_conversion as $row_conversion) {
 
-                        $conversion->updateRates($row_conversion->default_currency, $row_conversion->user_id);
+                        $conversion->updateRates($row_conversion->default_currency, $row_conversion->user_id, true);
 
                     }
 
@@ -128,12 +126,12 @@ if (DEMO_INSTALLATION != '1') {
                 $schedule->isFinished($row->id);
 
                 $log_message = '[END] Update Conversion Rates';
-                $log->info($log_message);
+                $log->notice($log_message);
 
             } elseif ($row->slug == 'check-new-version') {
 
                 $log_message = '[START] New Version Check';
-                $log->info($log_message, $log_extra);
+                $log->notice($log_message, $log_extra);
 
                 $schedule->isRunning($row->id);
                 $system->checkVersion(SOFTWARE_VERSION);
@@ -141,12 +139,12 @@ if (DEMO_INSTALLATION != '1') {
                 $schedule->isFinished($row->id);
 
                 $log_message = '[END] New Version Check';
-                $log->info($log_message);
+                $log->notice($log_message);
 
             } elseif ($row->slug == 'data-warehouse-build') {
 
                 $log_message = '[START] Build Data Warehouse';
-                $log->info($log_message, $log_extra);
+                $log->notice($log_message, $log_extra);
 
                 $dw = new DomainMOD\DwBuild();
                 $schedule->isRunning($row->id);
@@ -155,12 +153,12 @@ if (DEMO_INSTALLATION != '1') {
                 $schedule->isFinished($row->id);
 
                 $log_message = '[END] Build Data Warehouse';
-                $log->info($log_message);
+                $log->notice($log_message);
 
             } elseif ($row->slug == 'domain-queue') {
 
                 $log_message = '[START] Process Domain Queue';
-                $log->info($log_message, $log_extra);
+                $log->notice($log_message, $log_extra);
 
                 $queue = new DomainMOD\DomainQueue();
                 $schedule->isRunning($row->id);
@@ -170,12 +168,12 @@ if (DEMO_INSTALLATION != '1') {
                 $schedule->isFinished($row->id);
 
                 $log_message = '[END] Process Domain Queue';
-                $log->info($log_message);
+                $log->notice($log_message);
 
             } else {
 
                 $log_message = 'There are results, but no matching slugs';
-                $log->error($log_message, $log_extra);
+                $log->critical($log_message, $log_extra);
 
             }
 

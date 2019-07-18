@@ -3,7 +3,7 @@
  * /classes/DomainMOD/DwServers.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,16 +23,16 @@ namespace DomainMOD;
 
 class DwServers
 {
-    public $system;
+    public $deeb;
 
     public function __construct()
     {
-        $this->system = new System();
+        $this->deeb = Database::getInstance();
     }
 
     public function get()
     {
-        return $this->system->db()->query("
+        return $this->deeb->cnxx->query("
             SELECT id, `host`, protocol, `port`, username, api_token, `hash`
             FROM dw_servers
             ORDER BY `name`")->fetchAll();
@@ -45,18 +45,18 @@ class DwServers
         $zones = new DwZones();
         $time = new Time();
 
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
         $stmt = $pdo->prepare("
             UPDATE dw_servers
             SET build_start_time = :build_start_time,
                 build_status = '0'
             WHERE id = :id");
-        $stmt->bindParam('build_start_time', $build_start_time, \PDO::PARAM_STR);
+        $stmt->bindParam('build_start_time', $bind_build_start_time, \PDO::PARAM_STR);
         $stmt->bindParam('id', $bind_id, \PDO::PARAM_INT);
 
         foreach ($result as $row) {
 
-            $build_start_time = $time->stamp();
+            $bind_build_start_time = $time->stamp();
             $bind_id = $row->id;
             $stmt->execute();
 
@@ -73,14 +73,14 @@ class DwServers
             $result_zones = $zones->getInsertedZones($row->id);
             $zones->processEachZone($result_zones, $row->id, $row->protocol, $row->host, $row->port, $row->username,
                 $row->api_token, $row->hash);
-            $this->serverFinish($row->id, $build_start_time);
+            $this->serverFinish($row->id, $bind_build_start_time);
 
         }
     }
 
     public function serverFinish($server_id, $build_start_time)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $build = new DwBuild();
 

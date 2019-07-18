@@ -3,7 +3,7 @@
  * /assets/add/ssl-provider-account.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,38 +22,39 @@
 <?php
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
+require_once DIR_INC . '/config.inc.php';
+require_once DIR_INC . '/software.inc.php';
 require_once DIR_ROOT . '/vendor/autoload.php';
 
+$deeb = DomainMOD\Database::getInstance();
 $system = new DomainMOD\System();
-$error = new DomainMOD\Error();
+$layout = new DomainMOD\Layout();
 $time = new DomainMOD\Time();
 $form = new DomainMOD\Form();
 $assets = new DomainMOD\Assets();
+$sanitize = new DomainMOD\Sanitize();
+$unsanitize = new DomainMOD\Unsanitize();
 
 require_once DIR_INC . '/head.inc.php';
-require_once DIR_INC . '/config.inc.php';
-require_once DIR_INC . '/software.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/assets-add-ssl-account.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
-$pdo = $system->db();
 $system->authCheck();
 $system->readOnlyCheck($_SERVER['HTTP_REFERER']);
+$pdo = $deeb->cnxx;
 
-$new_owner_id = $_POST['new_owner_id'];
-$new_ssl_provider_id = $_POST['new_ssl_provider_id'];
-$new_email_address = $_POST['new_email_address'];
-$new_username = $_POST['new_username'];
-$new_password = $_POST['new_password'];
-$new_reseller = $_POST['new_reseller'];
-$new_reseller_id = $_POST['new_reseller_id'];
-$new_notes = $_POST['new_notes'];
+$new_owner_id = (int) $_POST['new_owner_id'];
+$new_ssl_provider_id = (int) $_POST['new_ssl_provider_id'];
+$new_email_address = $sanitize->text($_POST['new_email_address']);
+$new_username = $sanitize->text($_POST['new_username']);
+$new_password = $sanitize->text($_POST['new_password']);
+$new_reseller = (int) $_POST['new_reseller'];
+$new_reseller_id = $sanitize->text($_POST['new_reseller_id']);
+$new_notes = $sanitize->text($_POST['new_notes']);
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
-    if ($new_username != "" && $new_owner_id != "" && $new_ssl_provider_id != "" && $new_owner_id != "0" && $new_ssl_provider_id != "0") {
+    if ($new_username != "" && $new_owner_id !== 0 && $new_ssl_provider_id !== 0) {
 
         $stmt = $pdo->prepare("
             INSERT INTO ssl_accounts
@@ -93,13 +94,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     } else {
 
-        if ($new_owner_id == '' || $new_owner_id == '0') {
+        if ($new_owner_id === 0) {
 
             $_SESSION['s_message_danger'] .= "Choose the owner<BR>";
 
         }
 
-        if ($new_ssl_provider_id == '' || $new_ssl_provider_id == '0') {
+        if ($new_ssl_provider_id === 0) {
 
             $_SESSION['s_message_danger'] .= "Choose the SSL Provider<BR>";
 
@@ -114,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
@@ -124,7 +125,7 @@ echo $form->showFormTop('');
 
 echo $form->showDropdownTop('new_ssl_provider_id', 'SSL Provider', '', '1', '');
 
-if ($new_ssl_provider_id == '') {
+if ($new_ssl_provider_id === 0) {
 
     $to_compare = $_SESSION['s_default_ssl_provider'];
 
@@ -146,7 +147,7 @@ echo $form->showDropdownBottom('');
 
 echo $form->showDropdownTop('new_owner_id', 'Account Owner', '', '1', '');
 
-if ($new_owner_id == '') {
+if ($new_owner_id === 0) {
 
     $to_compare = $_SESSION['s_default_owner_ssl'];
 
@@ -166,16 +167,15 @@ foreach ($result as $row) {
 }
 echo $form->showDropdownBottom('');
 
-echo $form->showInputText('new_email_address', 'Email Address (100)', '', $new_email_address, '100', '', '', '', '');
-echo $form->showInputText('new_username', 'Username (100)', '', $new_username, '100', '', '1', '', '');
-echo $form->showInputText('new_password', 'Password (255)', '', $new_password, '255', '', '', '', '');
+echo $form->showInputText('new_email_address', 'Email Address (100)', '', $unsanitize->text($new_email_address), '100', '', '', '', '');
+echo $form->showInputText('new_username', 'Username (100)', '', $unsanitize->text($new_username), '100', '', '1', '', '');
+echo $form->showInputText('new_password', 'Password (255)', '', $unsanitize->text($new_password), '255', '', '', '', '');
 echo $form->showRadioTop('Reseller Account?', '', '');
-if ($new_reseller == '') $new_reseller = '0';
 echo $form->showRadioOption('new_reseller', '1', 'Yes', $new_reseller, '<BR>', '&nbsp;&nbsp;&nbsp;&nbsp;');
 echo $form->showRadioOption('new_reseller', '0', 'No', $new_reseller, '', '');
 echo $form->showRadioBottom('');
-echo $form->showInputText('new_reseller_id', 'Reseller ID (100)', '', $new_reseller_id, '100', '', '', '', '');
-echo $form->showInputTextarea('new_notes', 'Notes', '', $new_notes, '', '', '');
+echo $form->showInputText('new_reseller_id', 'Reseller ID (100)', '', $unsanitize->text($new_reseller_id), '100', '', '', '', '');
+echo $form->showInputTextarea('new_notes', 'Notes', '', $unsanitize->text($new_notes), '', '', '');
 echo $form->showSubmitButton('Add SSL Provider Account', '', '');
 echo $form->showFormBottom('');
 ?>

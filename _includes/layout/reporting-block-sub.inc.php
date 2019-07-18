@@ -3,7 +3,7 @@
  * /_includes/layout/reporting-block-sub.inc.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -19,7 +19,7 @@
  *
  */
 ?>
-<?php if ($all != '1') { ?>
+<?php if ($new_start_date != '' && $new_end_date != '') { ?>
 
     <strong>Date Range:</strong> <?php echo $new_start_date; ?> - <?php echo $new_end_date; ?><BR>
 

@@ -3,7 +3,7 @@
  * /_includes/layout/header-login.inc.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -33,6 +33,11 @@ if ($_SESSION['s_message_danger'] != "") {
 if ($_SESSION['s_message_success'] != "") {
     echo $system->showMessageSuccess($_SESSION['s_message_success']);
     unset($_SESSION['s_message_success']);
+}
+
+if ($_SESSION['s_message_info'] != "") {
+    echo $system->showMessageInfo($_SESSION['s_message_info']);
+    unset($_SESSION['s_message_info']);
 }
 
 require_once DIR_INC . '/layout/table-maintenance.inc.php';

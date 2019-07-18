@@ -1,5 +1,7 @@
 [![DomainMOD](https://cdn.domainmod.org/images/logo.png)](https://domainmod.org)
 
+[![Build Status](https://scrutinizer-ci.com/g/domainmod/domainmod/badges/build.png?b=master)](https://scrutinizer-ci.com/g/domainmod/domainmod/build-status/master) [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/domainmod/domainmod/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/domainmod/domainmod/?branch=master)
+
 Project Home: <https://domainmod.org>  
 Project Demo: <https://demo.domainmod.org>  
 Documentation: <https://domainmod.org/docs/>  
@@ -14,6 +16,12 @@ Live Demo
 Not sure if DomainMOD is what you're looking for? Don't want to take the time to install it only to find out that it's not? We hate when that happens ourselves, which is why we've setup a live demo so you don't waste your time.
 
 So go ahead, take the live demo for a test drive before you install: <https://demo.domainmod.org>
+
+Requirements
+------------
+**Software**: PHP v5.3.2+, MySQL  
+**PHP Extensions**: PDO (MySQL), cURL, OpenSSL  
+**PHP Settings**: allow_url_fopen  
 
 Downloading
 -----------
@@ -68,7 +76,7 @@ Although we've done our best to secure DomainMOD, unfortunately there are many f
 
 1. Do not use easy-to-guess passwords. **Ever**.
 
-2. Although DomainMOD has its own authentication system, we recommend that you also use HTTP authentication on your installation folder to add an extra layer of security.
+2. Although DomainMOD has its own authentication system, we recommend that you also use HTTP authentication on your installation directory to add an extra layer of security.
 
 3. Do not store your account passwords or API keys in DomainMOD. Although the ability to save this information exists, **use it at your own risk**. This information is fairly secure if you run DomainMOD on your local computer, but there's a much higher risk of someone gaining access to it if you host the site on a server that is accessible to the outside world.
 
@@ -76,13 +84,15 @@ Although we've done our best to secure DomainMOD, unfortunately there are many f
 
 4. Do not host DomainMOD on a public website or on an easy-to-guess URL.
 
+    If you do end up hosting DomainMOD on a public website, you should use your website's robots.txt file to block bots and spiders from crawling your site.
+
 5. Do not give the URL to anyone who does not need to access DomainMOD. You should treat the URL like a password.
 
-6. Always use the most up-to-date version of DomainMOD. This will help protect you from any security vulnerability that are found and fixed.
+6. Always use the most up-to-date version of DomainMOD. This will help protect you from any security vulnerabilities that are found and fixed.
 
 Upgrading
 ---------
-**WARNING:** Before upgrading it's strongly recommended that you make a backup of your DomainMOD installation directory and database. If something goes wrong during the upgrade there may be no way to recover your data, and having a backup of your installation directory and database will allow you to easily restore your previous installation.
+**WARNING:** Before upgrading it's **strongly** recommended that you backup your DomainMOD installation directory and database. If something goes wrong during the upgrade there may be no way to recover your data, and having a backup of your installation directory and database will allow you to easily restore your previous version.
 
 **Option #1**  
 If you installed DomainMOD by downloading the .ZIP file, visit the following URL to download the most up-to-date version: <https://domainmod.org/download/>
@@ -117,6 +127,14 @@ Zone Filename, Original/Primary Source of Zone Data, Admin Email, Serial #, Refr
 **DNS Records**  
 TTL, Class, Type, IP Address, CNAME, Mail Server, Mail Server Priority, TXT Data, Line # of Zone, # of Lines, RAW Data
 
+Code of Conduct
+---------------
+Please see CODE_OF_CONDUCT.md for a detailed explanation of our code of conduct.
+
+Contributing
+------------
+Please see CONTRIBUTING.md for our contributing guidelines.
+
 Support
 -------
 For the DomainMOD documentation please visit <https://domainmod.org/docs/>, or access the /docs/ folder within your DomainMOD installation.
@@ -130,7 +148,7 @@ Please see the CHANGELOG file that came with DomainMOD, or view the Changelog on
 License
 -------
 DomainMOD is an open source domain and internet asset manager.  
-Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
 
 DomainMOD is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 

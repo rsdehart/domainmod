@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Enom.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -29,7 +29,7 @@ class Enom
     public function __construct()
     {
         $this->format = new Format();
-        $this->log = new Log('enom.class');
+        $this->log = new Log('class.enom');
     }
 
     public function getApiUrl($account_username, $account_password, $domain, $command)
@@ -55,7 +55,9 @@ class Enom
     public function apiCall($full_url)
     {
         $handle = curl_init($full_url);
-        curl_setopt( $handle, CURLOPT_RETURNTRANSFER, true );
+        curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYPEER, false);
         $result = curl_exec($handle);
         curl_close($handle);
         return $result;

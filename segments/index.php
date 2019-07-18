@@ -3,7 +3,7 @@
  * /segments/index.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,30 +22,28 @@
 <?php
 require_once __DIR__ . '/../_includes/start-session.inc.php';
 require_once __DIR__ . '/../_includes/init.inc.php';
-
+require_once DIR_INC . '/config.inc.php';
+require_once DIR_INC . '/software.inc.php';
 require_once DIR_ROOT . '/vendor/autoload.php';
 
+$deeb = DomainMOD\Database::getInstance();
 $system = new DomainMOD\System();
-$error = new DomainMOD\Error();
 $layout = new DomainMOD\Layout;
 $time = new DomainMOD\Time();
 
 require_once DIR_INC . '/head.inc.php';
-require_once DIR_INC . '/config.inc.php';
-require_once DIR_INC . '/software.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/segments-main.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
-$pdo = $system->db();
 $system->authCheck();
+$pdo = $deeb->cnxx;
 
-$segid = (integer) $_GET['segid'];
-$export_data = $_GET['export_data'];
+$segid = (int) $_GET['segid'];
+$export_data = (int) $_GET['export_data'];
 
-if ($export_data == "1") {
+if ($export_data === 1) {
 
-    if ($segid != "") {
+    if ($segid !== 0) {
 
         $seg_clause = " AND s.id = :segid ";
 
@@ -56,6 +54,7 @@ if ($export_data == "1") {
         $stmt->bindValue('segid', $segid, PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         if ($result) {
 
@@ -78,7 +77,7 @@ if ($export_data == "1") {
 
     }
 
-    if ($segid != "") {
+    if ($segid !== 0) {
 
         $base_filename = "segment";
 
@@ -91,7 +90,7 @@ if ($export_data == "1") {
     $export = new DomainMOD\Export();
     $export_file = $export->openFile($base_filename, strtotime($time->stamp()));
 
-    if ($segid != "") {
+    if ($segid !== 0) {
 
         $row_contents = array(
             'Segment:',
@@ -134,7 +133,7 @@ if ($export_data == "1") {
     $row_contents[$count++] = "Segment";
     $row_contents[$count++] = "Description";
     $row_contents[$count++] = "Domain";
-    if ($segid == "") {
+    if ($segid === 0) {
 
         $row_contents[$count++] = "Number of Domains in Segment";
 
@@ -153,7 +152,7 @@ if ($export_data == "1") {
         WHERE s.id = sd.segment_id" .
         $seg_clause . "
         ORDER BY s.name ASC, sd.domain ASC");
-    if ($segid != '') {
+    if ($segid !== 0) {
         $stmt->bindValue('segid', $segid, PDO::PARAM_INT);
     }
     $stmt->execute();
@@ -178,7 +177,7 @@ if ($export_data == "1") {
             $row_contents[$count++] = $row->name;
             $row_contents[$count++] = $row->description;
             $row_contents[$count++] = $row->domain;
-            if ($segid == "") {
+            if ($segid === 0) {
 
                 $row_contents[$count++] = $row->number_of_domains;
             }
@@ -200,7 +199,7 @@ if ($export_data == "1") {
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
@@ -221,7 +220,7 @@ $has_existing_segments = $pdo->query("
 
 if (!$has_existing_segments) { ?>
 
-    You don't currently have any Segments. <a href="add/segment.php">Click here to add one</a>.<BR><BR><?php
+    You don't currently have any Segments. <a href="add.php">Click here to add one</a>.<BR><BR><?php
 
 } else { ?>
 

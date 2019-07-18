@@ -3,7 +3,7 @@
  * /classes/DomainMOD/DwClean.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,11 +23,11 @@ namespace DomainMOD;
 
 class DwClean
 {
-    public $system;
+    public $deeb;
 
     public function __construct()
     {
-        $this->system = new System();
+        $this->deeb = Database::getInstance();
     }
 
     public function all()
@@ -44,7 +44,7 @@ class DwClean
 
     public function prep()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
         $pdo->query("
             DELETE FROM dw_dns_records
             WHERE type = ':RAW'
@@ -73,7 +73,7 @@ class DwClean
 
     public function wrapLine($field, $wrap_at)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $result = $pdo->query("
             SELECT id, " . $field . "
@@ -102,7 +102,7 @@ class DwClean
 
     public function lines()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
         $pdo->query("
             UPDATE dw_dns_records
             SET `formatted_line` = concat(' | ', `line`, ' | ')
@@ -116,14 +116,14 @@ class DwClean
 
     public function types()
     {
-        $this->system->db()->query("
+        $this->deeb->cnxx->query("
             UPDATE dw_dns_records
             SET `formatted_type` = concat('<strong" . ">" . "', `type`, '</strong" . ">" . "')");
     }
 
     public function content()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
         $pdo->query("
             UPDATE dw_dns_records
             SET formatted_output = concat(`name`, ' | ', `address`, ' | ', `ttl`)
@@ -177,7 +177,7 @@ class DwClean
 
     public function reorderRecords()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $type_order = array();
         $count = 0;
@@ -195,11 +195,11 @@ class DwClean
         $stmt = $pdo->prepare("
             UPDATE dw_dns_records
             SET new_order = :new_order
-            WHERE type = :key");
+            WHERE type = :type");
         $stmt->bindValue('new_order', $new_order, \PDO::PARAM_INT);
-        $stmt->bindParam('key', $key, \PDO::PARAM_STR);
+        $stmt->bindParam('type', $bind_type, \PDO::PARAM_STR);
 
-        foreach ($type_order as $key) {
+        foreach ($type_order as $bind_type) {
 
             $stmt->execute();
 

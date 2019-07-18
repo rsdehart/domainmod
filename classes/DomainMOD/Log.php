@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Log.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -43,9 +43,9 @@ class Log
 
     public function addEntry($level, $message, $extra_info)
     {
-        $system = new System();
-        $pdo = $system->db();
-        if ($extra_info != '') {
+        $deeb = Database::getInstance();
+        $pdo = $deeb->cnxx;
+        if (!empty($extra_info)) {
             $extra_info_formatted = $this->formatExtraInfo($extra_info);
         } else {
             $extra_info_formatted = '';
@@ -70,11 +70,15 @@ class Log
     public function formatExtraInfo($extra_info)
     {
         $extra_info_formatted = '';
-        foreach ($extra_info as $key => $value) {
+        $last_error = error_get_last();
+        $last_error_message = array('Last Error' => $last_error['message']);
+        $merged_array = array_merge($last_error_message, $extra_info);
+        foreach ($merged_array as $key => $value) {
             $extra_info_formatted .= '"' . $key . '":"' . $value . '", ';
         }
         return substr($extra_info_formatted, 0, -2);
     }
+
     /*
      * EMERGENCY
      * System is unusable.

@@ -3,7 +3,7 @@
  * /_includes/update.inc.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -78,9 +78,9 @@ if ($current_db_version < SOFTWARE_VERSION) {
 
     $_SESSION['s_system_upgrade_available'] = '0';
 
-    $sql = "UPDATE settings
-            SET upgrade_available = '0'";
-    $result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
+    $pdo->query("
+        UPDATE settings
+        SET upgrade_available = '0'");
 
     $_SESSION['s_message_success'] .= "Your database has been upgraded<BR>";
     $message_success_cli = "Your database has been upgraded\r\n\r\n";

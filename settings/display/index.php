@@ -3,7 +3,7 @@
  * /settings/display/index.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,35 +22,83 @@
 <?php //@formatter:off
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
-require_once DIR_ROOT . '/vendor/autoload.php';
-
-$error = new DomainMOD\Error();
-$system = new DomainMOD\System();
-$form = new DomainMOD\Form();
-$time = new DomainMOD\Time();
-
-require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/software.inc.php';
+require_once DIR_ROOT . '/vendor/autoload.php';
+
+$deeb = DomainMOD\Database::getInstance();
+$system = new DomainMOD\System();
+$layout = new DomainMOD\Layout();
+$time = new DomainMOD\Time();
+$form = new DomainMOD\Form();
+$custom_field = new DomainMOD\CustomField();
+
+require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/settings-display.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
-$pdo = $system->db();
 $system->authCheck();
+$pdo = $deeb->cnxx;
 
-$new_number_of_domains = $_POST['new_number_of_domains'];
-$new_number_of_ssl_certs = $_POST['new_number_of_ssl_certs'];
+$new_number_of_domains = (int) $_POST['new_number_of_domains'];
+$new_number_of_ssl_certs = (int) $_POST['new_number_of_ssl_certs'];
 $domain_column_options = $_POST['domain_column_options'];
+$custom_domain_fields = $_POST['custom_domain_fields'];
+$custom_ssl_fields = $_POST['custom_ssl_fields'];
 $ssl_column_options = $_POST['ssl_column_options'];
-$new_display_inactive_assets = $_POST['new_display_inactive_assets'];
-$new_display_dw_intro_page = $_POST['new_display_dw_intro_page'];
+$new_display_inactive_assets = (int) $_POST['new_display_inactive_assets'];
+$new_display_dw_intro_page = (int) $_POST['new_display_dw_intro_page'];
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     if (is_null($domain_column_options)) $domain_column_options = array('');
+    if (is_null($custom_domain_fields)) $custom_domain_fields = array('');
+    if (is_null($custom_ssl_fields)) $custom_ssl_fields = array('');
     if (is_null($ssl_column_options)) $ssl_column_options = array('');
+
+    foreach ($_SESSION['s_cdf_data'] as $field) {
+
+        if (in_array($field['display_field'], $custom_domain_fields)) {
+
+            $pdo->query("
+                UPDATE `user_settings`
+                SET " . $field['display_field'] . " = '1'
+                WHERE id = '" . $_SESSION['s_user_id'] . "'");
+
+        } else {
+
+            $pdo->query("
+                UPDATE `user_settings`
+                SET " . $field['display_field'] . " = '0'
+                WHERE id = '" . $_SESSION['s_user_id'] . "'");
+
+        }
+
+        $_SESSION['s_cdf_data'] = $custom_field->getCDFData();
+
+    }
+
+    foreach ($_SESSION['s_csf_data'] as $field) {
+
+        if (in_array($field['display_field'], $custom_ssl_fields)) {
+
+            $pdo->query("
+                UPDATE `user_settings`
+                SET " . $field['display_field'] . " = '1'
+                WHERE id = '" . $_SESSION['s_user_id'] . "'");
+
+        } else {
+
+            $pdo->query("
+                UPDATE `user_settings`
+                SET " . $field['display_field'] . " = '0'
+                WHERE id = '" . $_SESSION['s_user_id'] . "'");
+
+        }
+
+        $_SESSION['s_csf_data'] = $custom_field->getCSFData();
+
+    }
 
     if (in_array("expiry", $domain_column_options)) { $new_display_domain_expiry_date = '1'; } else { $new_display_domain_expiry_date = '0'; }
     if (in_array("fee", $domain_column_options)) { $new_display_domain_fee = '1'; } else { $new_display_domain_fee = '0'; }
@@ -75,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 }
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_number_of_domains != "" && $new_number_of_ssl_certs != "") {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_number_of_domains !== 0 && $new_number_of_ssl_certs !== 0) {
 
     $stmt = $pdo->prepare("
         UPDATE user_settings
@@ -159,15 +207,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_number_of_domains != "" && $new
 
     $_SESSION['s_message_success'] .= "Display Settings updated<BR>";
 
-    header("Location: ../index.php");
+    header("Location: index.php");
     exit;
 
 } else {
 
     if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
-        if ($new_number_of_domains == "") $_SESSION['s_message_danger'] .= "Enter the default number of domains to display<BR>";
-        if ($new_number_of_ssl_certs == "") $_SESSION['s_message_danger'] .= "Enter the default number of SSL certficates to display<BR>";
+        if ($new_number_of_domains === 0) $_SESSION['s_message_danger'] .= "Enter the default number of domains to display<BR>";
+        if ($new_number_of_ssl_certs === 0) $_SESSION['s_message_danger'] .= "Enter the default number of SSL certficates to display<BR>";
 
     } else {
 
@@ -183,6 +231,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_number_of_domains != "" && $new
         $stmt->bindValue('user_id', $_SESSION['s_user_id'], PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         if ($result) {
 
@@ -213,12 +262,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_number_of_domains != "" && $new
         }
 
     }
+
 }
 ?>
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
@@ -228,7 +278,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_number_of_domains != "" && $new
 
 <h3>Main Domain Page</h3><?php
 
-if ($new_number_of_domains != "") {
+if ($new_number_of_domains !== 0) {
     $temp_number_of_domains = $new_number_of_domains;
 } else {
     $temp_number_of_domains = '';
@@ -246,12 +296,26 @@ echo $form->showMultipleSelectOption('IP Address', 'ip', $new_display_domain_ip)
 echo $form->showMultipleSelectOption('Web Host', 'host', $new_display_domain_host);
 echo $form->showMultipleSelectOption('Category', 'category', $new_display_domain_category);
 echo $form->showMultipleSelectOption('Owner', 'owner', $new_display_domain_owner);
+echo $form->showMultipleSelectBottom('');
+
+echo $form->showMultipleSelectTop('custom_domain_fields', 'Custom Domain Fields to Display', '');
+
+foreach ($_SESSION['s_cdf_data'] as $field) {
+
+    if ($field['type_id'] != '3') { // Don't show Text Areas
+
+        echo $form->showMultipleSelectOption($field['name'], $field['display_field'], $field['value']);
+
+    }
+
+}
+
 echo $form->showMultipleSelectBottom('<BR>');
 ?>
 
 <h3>Main SSL Certificate Page</h3><?php
 
-if ($new_number_of_ssl_certs != "") {
+if ($new_number_of_ssl_certs !== 0) {
     $temp_number_of_ssl_certs = $new_number_of_ssl_certs;
 } else {
     $temp_number_of_ssl_certs = '';
@@ -268,6 +332,20 @@ echo $form->showMultipleSelectOption('SSL Type', 'type', $new_display_ssl_type);
 echo $form->showMultipleSelectOption('IP Address', 'ip', $new_display_ssl_ip);
 echo $form->showMultipleSelectOption('Category', 'category', $new_display_ssl_category);
 echo $form->showMultipleSelectOption('Owner', 'owner', $new_display_ssl_owner);
+echo $form->showMultipleSelectBottom('');
+
+echo $form->showMultipleSelectTop('custom_ssl_fields', 'Custom SSL Fields to Display', '');
+
+foreach ($_SESSION['s_csf_data'] as $field) {
+
+    if ($field['type_id'] != '3') { // Don't show Text Areas
+
+        echo $form->showMultipleSelectOption($field['name'], $field['display_field'], $field['value']);
+
+    }
+
+}
+
 echo $form->showMultipleSelectBottom('<BR>');
 ?>
 

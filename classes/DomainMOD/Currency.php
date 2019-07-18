@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Currency.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,13 +23,13 @@ namespace DomainMOD;
 
 class Currency
 {
-    public $system;
+    public $deeb;
     public $log;
 
     public function __construct()
     {
-        $this->system = new System();
-        $this->log = new Log('currency.class');
+        $this->deeb = Database::getInstance();
+        $this->log = new Log('class.currency');
     }
 
     public function format($amount, $symbol, $order, $space)
@@ -49,7 +49,7 @@ class Currency
 
     public function getCurrencyId($currency)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT id
@@ -63,7 +63,7 @@ class Currency
 
             $log_message = 'Unable to retrieve Currency ID';
             $log_extra = array('Currency' => $currency);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -72,6 +72,22 @@ class Currency
 
         }
 
+    }
+
+    public function getCurrencyInfo($currency)
+    {
+        $pdo = $this->deeb->cnxx;
+
+        $stmt = $pdo->prepare("
+            SELECT `name`, symbol, symbol_order, symbol_space
+            FROM currencies
+            WHERE currency = :currency");
+        $stmt->bindValue('currency', $currency, \PDO::PARAM_STR);
+        $stmt->execute();
+        $result = $stmt->fetch();
+        $stmt->closeCursor();
+
+        return array($result->name, $result->symbol, $result->symbol_order, $result->symbol_space);
     }
 
 } //@formatter:on

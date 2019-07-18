@@ -3,7 +3,7 @@
  * /queue/index.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,40 +22,39 @@
 <?php //@formatter:off
 require_once __DIR__ . '/../_includes/start-session.inc.php';
 require_once __DIR__ . '/../_includes/init.inc.php';
-
+require_once DIR_INC . '/config.inc.php';
+require_once DIR_INC . '/software.inc.php';
 require_once DIR_ROOT . '/vendor/autoload.php';
 
+$deeb = DomainMOD\Database::getInstance();
 $system = new DomainMOD\System();
-$error = new DomainMOD\Error();
 $layout = new DomainMOD\Layout();
 $time = new DomainMOD\Time();
 $assets = new DomainMOD\Assets();
+$queue = new DomainMOD\DomainQueue();
 $user = new DomainMOD\User();
+$sanitize = new DomainMOD\Sanitize();
+$unsanitize = new DomainMOD\Unsanitize();
 
 require_once DIR_INC . '/head.inc.php';
-require_once DIR_INC . '/config.inc.php';
-require_once DIR_INC . '/software.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/queue-main.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
-$queue = new DomainMOD\DomainQueue();
-
-$pdo = $system->db();
 $system->authCheck();
+$pdo = $deeb->cnxx;
 
-$list_id = $_GET['list_id'];
-$dell = $_GET['dell'];
-$really_dell = $_GET['really_dell'];
+$list_id = (int) $_GET['list_id'];
+$dell = (int) $_GET['dell'];
+$really_dell = (int) $_GET['really_dell'];
 
-$domain_id = $_GET['domain_id'];
-$deld = $_GET['deld'];
-$really_deld = $_GET['really_deld'];
+$domain_id = (int) $_GET['domain_id'];
+$deld = (int) $_GET['deld'];
+$really_deld = (int) $_GET['really_deld'];
 
-$clear = $_GET['clear'];
-$really_clear = $_GET['really_clear'];
-$s = $_GET['s'];
-$export_data = $_GET['export_data'];
+$clear = (int) $_GET['clear'];
+$really_clear = (int) $_GET['really_clear'];
+$s = $sanitize->text($_GET['s']);
+$export_data = (int) $_GET['export_data'];
 
 $result_lists = $pdo->query("
     SELECT dql.id, dql.api_registrar_id, dql.domain_count, dql.owner_id, dql.registrar_id, dql.account_id,
@@ -71,7 +70,7 @@ $result_lists = $pdo->query("
 $result_domains = $pdo->query("
     SELECT dq.id, dq.api_registrar_id, dq.domain_id, dq.owner_id, dq.registrar_id, dq.account_id, dq.domain,
         dq.tld, dq.expiry_date, dq.cat_id, dq.dns_id, dq.ip_id, dq.hosting_id, dq.autorenew, dq.privacy,
-        dq.processing, dq.ready_to_import, dq.finished, dq.already_in_domains, dq.already_in_queue,
+        dq.processing, dq.ready_to_import, dq.finished, dq.already_in_domains, dq.already_in_queue, dq.invalid_domain,
         dq.copied_to_history, dq.created_by, dq.insert_time, r.name AS registrar_name,
         ra.username AS username, o.name AS owner, ar.name AS api_registrar_name
     FROM domain_queue AS dq, registrars AS r, registrar_accounts AS ra, owners AS o, api_registrars AS ar
@@ -81,7 +80,7 @@ $result_domains = $pdo->query("
       AND dq.api_registrar_id = ar.id
     ORDER BY dq.already_in_domains ASC, dq.already_in_queue ASC, dq.insert_time DESC, dq.domain ASC")->fetchAll();
 
-if ($export_data == '1') {
+if ($export_data === 1) {
 
     if ($s == 'lists') {
 
@@ -148,6 +147,8 @@ if ($export_data == '1') {
 
         }
 
+        $export->closeFile($export_file);
+
     } elseif ($s == 'domains') {
 
         // domain queue
@@ -178,6 +179,7 @@ if ($export_data == '1') {
             'Ready To Import',
             'Already in Domains',
             'Already in Queue',
+            'Invalid Domain',
             'Copied To History',
             'Added By',
             'Inserted',
@@ -202,6 +204,10 @@ if ($export_data == '1') {
                         $export_processing = 'Already in Domain Queue';
                         $already_exists = '1';
 
+                    } elseif ($row_domains->invalid_domain === 1) {
+
+                        $export_processing = 'Invalid Domain';
+
                     } else {
 
                         $export_processing = 'Successfully Imported';
@@ -222,9 +228,9 @@ if ($export_data == '1') {
 
                 }
 
-                if ($row_domains->expiry_date == '0000-00-00') {
+                if ($row_domains->expiry_date == '1970-01-01') {
 
-                    if ($already_exists == '1') {
+                    if ($already_exists == '1' || $row_domains->invalid_domain === 1) {
 
                         $export_expiry_date = '-';
 
@@ -236,13 +242,21 @@ if ($export_data == '1') {
 
                 } else {
 
-                    $export_expiry_date = $row_domains->expiry_date;
+                    if ($already_exists == '1' || $row_domains->invalid_domain === 1) {
+
+                        $export_expiry_date = '-';
+
+                    } else {
+
+                        $export_expiry_date = $row_domains->expiry_date;
+
+                    }
 
                 }
 
                 if ($row_domains->dns_id == '0') {
 
-                    if ($already_exists == '1') {
+                    if ($already_exists == '1' || $row_domains->invalid_domain === 1) {
 
                         $export_dns = '-';
 
@@ -260,7 +274,7 @@ if ($export_data == '1') {
 
                 if ($row_domains->ip_id == '0') {
 
-                    if ($already_exists == '1') {
+                    if ($already_exists == '1' || $row_domains->invalid_domain === 1) {
 
                         $export_ip_name = '-';
                         $export_ip_address = '-';
@@ -276,117 +290,134 @@ if ($export_data == '1') {
 
                     list($export_ip_address, $export_ip_name) = $assets->getIpAndName($row_domains->ip_id);
 
-                    if ($row_domains->hosting_id == '0') {
+                }
 
-                        if ($already_exists == '1') {
+                if ($row_domains->hosting_id == '0') {
 
-                            $export_host = '-';
+                    if ($already_exists == '1' || $row_domains->invalid_domain === 1) {
 
-                        } else {
-
-                            $export_host = 'Pending';
-
-                        }
+                        $export_host = '-';
 
                     } else {
 
-                        $export_host = $assets->getHost($row_domains->hosting_id);
+                        $export_host = 'Pending';
 
                     }
 
-                    if ($row_domains->cat_id == '0') {
+                } else {
 
-                        if ($already_exists == '1') {
+                    $export_host = $assets->getHost($row_domains->hosting_id);
 
-                            $export_category = '-';
+                }
 
-                        } else {
+                if ($row_domains->cat_id == '0') {
 
-                            $export_category = 'Pending';
+                    if ($already_exists == '1' || $row_domains->invalid_domain === 1) {
 
-                        }
+                        $export_category = '-';
 
                     } else {
 
-                        $export_category = $assets->getCat($row_domains->cat_id);
+                        $export_category = 'Pending';
 
                     }
 
-                    if ($row_domains->autorenew == '1') {
+                } else {
 
-                        $export_autorenew = 'Yes';
+                    $export_category = $assets->getCat($row_domains->cat_id);
 
-                    } else {
+                }
 
-                        if ($row_domains->finished == '1') {
+                if ($row_domains->autorenew == '1') {
+
+                    $export_autorenew = 'Yes';
+
+                } else {
+
+                    if ($row_domains->finished == '1') {
+
+                        if ($already_exists == '1' || $row_domains->invalid_domain === 1) {
+
+                            $export_autorenew = '-';
+
+                        } else {
 
                             $export_autorenew = 'No';
 
-                        } else {
-
-                            $export_autorenew = 'Pending';
-
                         }
-
-                    }
-
-                    if ($row_domains->privacy == '1') {
-
-                        $export_privacy = 'Yes';
 
                     } else {
 
-                        if ($row_domains->finished == '1') {
+                        $export_autorenew = 'Pending';
+
+                    }
+
+                }
+
+                if ($row_domains->privacy == '1') {
+
+                    $export_privacy = 'Yes';
+
+                } else {
+
+                    if ($row_domains->finished == '1') {
+
+                        if ($already_exists == '1' || $row_domains->invalid_domain === 1) {
+
+                            $export_privacy = '-';
+
+                        } else {
 
                             $export_privacy = 'No';
 
-                        } else {
-
-                            $export_privacy = 'Pending';
-
                         }
-
-                    }
-
-                    $account_export = $assets->getUsername($row_domains->account_id);
-
-                    if ($row_domains->created_by == '0') {
-
-                        $full_name_export = '[unknown]';
 
                     } else {
 
-                        $full_name_export = $user->getFullName($row_domains->created_by);
+                        $export_privacy = 'Pending';
 
                     }
 
-                    $row_contents = array(
-                        $export_processing,
-                        $row_domains->domain,
-                        $row_domains->api_registrar_name,
-                        $row_domains->registrar_name,
-                        $row_domains->owner,
-                        $account_export,
-                        $row_domains->tld,
-                        $export_expiry_date,
-                        $export_dns,
-                        $export_ip_name,
-                        $export_ip_address,
-                        $export_host,
-                        $export_category,
-                        $export_autorenew,
-                        $export_privacy,
-                        $row_domains->ready_to_import,
-                        $row_domains->already_in_domains,
-                        $row_domains->already_in_queue,
-                        $row_domains->copied_to_history,
-                        $full_name_export,
-                        $time->toUserTimezone($row_domains->insert_time),
-                        $row_domains->domain_id
-                    );
-                    $export->writeRow($export_file, $row_contents);
+                }
+
+                $account_export = $assets->getUsername($row_domains->account_id);
+
+                if ($row_domains->created_by == '0') {
+
+                    $full_name_export = '[unknown]';
+
+                } else {
+
+                    $full_name_export = $user->getFullName($row_domains->created_by);
 
                 }
+
+                $row_contents = array(
+                    $export_processing,
+                    $row_domains->domain,
+                    $row_domains->api_registrar_name,
+                    $row_domains->registrar_name,
+                    $row_domains->owner,
+                    $account_export,
+                    $row_domains->tld,
+                    $export_expiry_date,
+                    $export_dns,
+                    $export_ip_name,
+                    $export_ip_address,
+                    $export_host,
+                    $export_category,
+                    $export_autorenew,
+                    $export_privacy,
+                    $row_domains->ready_to_import,
+                    $row_domains->already_in_domains,
+                    $row_domains->already_in_queue,
+                    $row_domains->invalid_domain,
+                    $row_domains->copied_to_history,
+                    $full_name_export,
+                    $time->toUserTimezone($row_domains->insert_time),
+                    $row_domains->domain_id
+                );
+                $export->writeRow($export_file, $row_contents);
 
             }
 
@@ -398,27 +429,30 @@ if ($export_data == '1') {
 
 }
 
-if ($clear == "1") {
+if ($clear === 1) {
 
     $_SESSION['s_message_danger'] .= "Are you sure you want to clear completed items from the queue?<BR><BR>Before clearing the queue you should review the results to make sure that everything is correct.<BR><BR><a href=\"index.php?really_clear=1\">YES, REALLY CLEAR COMPLETED ITEMS FROM THE QUEUE</a><BR>";
 
 }
 
-if ($really_clear == "1") {
+if ($really_clear === 1) {
 
     $queue->clearFinished();
 
     $_SESSION['s_message_success'] .= "Completed items cleared from the queue<BR>";
 
+    header("Location: index.php");
+    exit;
+
 }
 
-if ($dell != '' && $list_id != '') {
+if ($dell === 1 && $list_id !== 0) {
 
     $_SESSION['s_message_danger'] .= "Are you sure you want to delete this Domain List from the Queue?<BR><BR><a href=\"index.php?really_dell=1&list_id=" . $list_id . "\">YES, REALLY DELETE THIS DOMAIN LIST FROM THE QUEUE</a><BR>";
 
 }
 
-if ($really_dell == '1' && $list_id != '') {
+if ($really_dell === 1 && $list_id !== 0) {
 
     $stmt = $pdo->prepare("
         DELETE FROM domain_queue_list
@@ -428,15 +462,18 @@ if ($really_dell == '1' && $list_id != '') {
 
     $_SESSION['s_message_success'] .= "Domain List deleted from Queue<BR>";
 
+    header("Location: index.php");
+    exit;
+
 }
 
-if ($deld != '' && $domain_id != '') {
+if ($deld === 1 && $domain_id !== 0) {
 
     $_SESSION['s_message_danger'] .= "Are you sure you want to delete this Domain from the Queue?<BR><BR><a href=\"index.php?really_deld=1&domain_id=" . $domain_id . "\">YES, REALLY DELETE THIS DOMAIN FROM THE QUEUE</a><BR>";
 
 }
 
-if ($really_deld == '1' && $domain_id != '') {
+if ($really_deld === 1 && $domain_id !== 0) {
 
     $stmt = $pdo->prepare("
         DELETE FROM domain_queue
@@ -448,12 +485,15 @@ if ($really_deld == '1' && $domain_id != '') {
 
     $_SESSION['s_message_success'] .= "Domain deleted from Queue<BR>";
 
+    header("Location: index.php");
+    exit;
+
 }
 ?>
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
@@ -559,7 +599,7 @@ if (!$result_lists) {
             </td>
             <td><?php
 
-                if ($row_lists->insert_time != '0000-00-00 00:00:00') {
+                if ($row_lists->insert_time != '1970-01-01 00:00:00') {
 
                     $to_display = $time->toUserTimezone($row_lists->insert_time);
 
@@ -624,6 +664,10 @@ if (!$result_domains) {
                         echo $layout->highlightText('red', 'Already in Domain Queue');
                         $already_exists = '1';
 
+                    } elseif ($row_domains->invalid_domain === 1) {
+
+                        echo $layout->highlightText('red', 'Invalid Domain');
+
                     } else {
 
                         echo $layout->highlightText('green', 'Successfully Imported');
@@ -652,9 +696,9 @@ if (!$result_domains) {
                 (<?php echo $row_domains->username; ?>)
             </td>
             <td><?php
-                if ($row_domains->expiry_date == '0000-00-00') {
+                if ($row_domains->expiry_date == '1970-01-01') {
 
-                    if ($already_exists == '1') {
+                    if ($already_exists == '1' || $row_domains->invalid_domain === 1) {
 
                         $to_display = '-';
 
@@ -666,7 +710,15 @@ if (!$result_domains) {
 
                 } else {
 
-                    $to_display = $row_domains->expiry_date;
+                    if ($already_exists == '1' || $row_domains->invalid_domain === 1) {
+
+                        $to_display = '-';
+
+                    } else {
+
+                        $to_display = $row_domains->expiry_date;
+
+                    }
 
                 }
                 echo $to_display; ?>
@@ -674,7 +726,7 @@ if (!$result_domains) {
             <td><?php
                 if ($row_domains->dns_id == '0') {
 
-                    if ($already_exists == '1') {
+                    if ($already_exists == '1' || $row_domains->invalid_domain === 1) {
 
                         $to_display = '-';
 
@@ -694,7 +746,7 @@ if (!$result_domains) {
             <td><?php
                 if ($row_domains->ip_id == '0') {
 
-                    if ($already_exists == '1') {
+                    if ($already_exists == '1' || $row_domains->invalid_domain === 1) {
 
                         $to_display = '-';
 
@@ -724,7 +776,7 @@ if (!$result_domains) {
                 echo $to_display; ?>
             </td>
             <td><?php
-                if ($row_domains->insert_time != '0000-00-00 00:00:00') {
+                if ($row_domains->insert_time != '1970-01-01 00:00:00') {
 
                     $to_display = $time->toUserTimezone($row_domains->insert_time);
 

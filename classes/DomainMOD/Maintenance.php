@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Maintenance.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,20 +23,21 @@ namespace DomainMOD;
 
 class Maintenance
 {
+    public $deeb;
     public $log;
-    public $system;
     public $time;
 
     public function __construct()
     {
-        $this->log = new Log('maintenance.class');
-        $this->system = new System();
+        $this->deeb = Database::getInstance();
+        $this->log = new Log('class.maintenance');
         $this->time = new Time();
     }
 
     public function performCleanup()
     {
         $this->lowercaseDomains();
+        $this->lowercaseTlds();
         $this->updateTlds();
         $this->updateSegments();
         $this->updateAllFees();
@@ -51,28 +52,33 @@ class Maintenance
 
     public function lowercaseDomains()
     {
-        $this->system->db()->query("UPDATE domains SET domain = LOWER(domain)");
+        $this->deeb->cnxx->query("UPDATE domains SET domain = LOWER(domain)");
+    }
+
+    public function lowercaseTlds()
+    {
+        $this->deeb->cnxx->query("UPDATE fees SET tld = LOWER(tld)");
     }
 
     public function updateTlds()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $result = $pdo->query("SELECT id, domain FROM domains")->fetchAll();
 
         if ($result) {
 
-            $pdo = $this->system->db();
+            $pdo = $this->deeb->cnxx;
             $stmt = $pdo->prepare("
                 UPDATE domains
                 SET tld = :tld
                 WHERE id = :id");
-            $stmt->bindParam('tld', $tld, \PDO::PARAM_STR);
+            $stmt->bindParam('tld', $bind_tld, \PDO::PARAM_STR);
             $stmt->bindParam('id', $bind_id, \PDO::PARAM_INT);
 
             foreach ($result as $row) {
 
-                $tld = $this->getTld($row->domain);
+                $bind_tld = $this->getTld($row->domain);
                 $bind_id = $row->id;
                 $stmt->execute();
 
@@ -88,7 +94,7 @@ class Maintenance
 
     public function updateSegments()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
         $pdo->query("
             UPDATE segment_data
             SET active = '0',
@@ -120,7 +126,7 @@ class Maintenance
 
     public function updateDomainFees()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $pdo->query("UPDATE domains SET fee_fixed = '0'");
 
@@ -184,9 +190,9 @@ class Maintenance
 
             foreach ($result as $row) {
 
+                $bind_fee_id = $row->id;
                 $bind_registrar_id = $row->registrar_id;
                 $bind_tld = $row->tld;
-                $bind_fee_id = $row->id;
 
                 $stmt->execute();
 
@@ -203,7 +209,7 @@ class Maintenance
 
     public function updateDomainFee($domain_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT registrar_id, tld
@@ -212,6 +218,7 @@ class Maintenance
         $stmt->bindValue('domain_id', $domain_id, \PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         if ($result) {
 
@@ -233,8 +240,8 @@ class Maintenance
                 update_time = :update_time
             WHERE registrar_id = :registrar_id
               AND tld = :tld");
-        $bind_timestamp = $this->time->stamp();
-        $stmt->bindValue('update_time', $bind_timestamp, \PDO::PARAM_STR);
+        $timestamp = $this->time->stamp();
+        $stmt->bindValue('update_time', $timestamp, \PDO::PARAM_STR);
         $stmt->bindValue('registrar_id', $registrar_id, \PDO::PARAM_INT);
         $stmt->bindValue('tld', $tld, \PDO::PARAM_STR);
         $stmt->execute();
@@ -291,8 +298,8 @@ class Maintenance
                     update_time = :update_time
                 WHERE registrar_id = :registrar_id
                   AND tld = :tld");
-            $bind_timestamp = $this->time->stamp();
-            $stmt4->bindValue('update_time', $bind_timestamp, \PDO::PARAM_STR);
+            $timestamp = $this->time->stamp();
+            $stmt4->bindValue('update_time', $timestamp, \PDO::PARAM_STR);
             $stmt4->bindParam('registrar_id', $bind_registrar_id, \PDO::PARAM_INT);
             $stmt4->bindParam('tld', $bind_tld, \PDO::PARAM_STR);
 
@@ -308,7 +315,7 @@ class Maintenance
 
                 $stmt3->execute();
 
-                $stmt->execute();
+                $stmt4->execute();
 
             }
 
@@ -317,7 +324,7 @@ class Maintenance
 
     public function updateSslFees()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $pdo->query("UPDATE ssl_certs SET fee_fixed = '0'");
 
@@ -325,8 +332,8 @@ class Maintenance
             UPDATE ssl_fees
             SET fee_fixed = '0',
                 update_time = :update_time");
-        $bind_timestamp = $this->time->stamp();
-        $stmt->bindValue('update_time', $bind_timestamp, \PDO::PARAM_STR);
+        $timestamp = $this->time->stamp();
+        $stmt->bindValue('update_time', $timestamp, \PDO::PARAM_STR);
         $stmt->execute();
 
         $result = $pdo->query("
@@ -362,8 +369,8 @@ class Maintenance
                     update_time = :update_time
                 WHERE ssl_provider_id = :ssl_provider_id
                   AND type_id = :type_id");
-            $bind_timestamp = $this->time->stamp();
-            $stmt3->bindValue('update_time', $bind_timestamp, \PDO::PARAM_STR);
+            $timestamp = $this->time->stamp();
+            $stmt3->bindValue('update_time', $timestamp, \PDO::PARAM_STR);
             $stmt3->bindParam('ssl_provider_id', $bind_ssl_provider_id, \PDO::PARAM_INT);
             $stmt3->bindParam('type_id', $bind_type_id, \PDO::PARAM_INT);
 
@@ -386,7 +393,7 @@ class Maintenance
 
     public function deleteUnusedFees($fee_table, $compare_table)
     {
-        $this->system->db()->query("
+        $this->deeb->cnxx->query("
             DELETE FROM " . $fee_table . "
             WHERE id NOT IN (
                              SELECT fee_id
@@ -397,7 +404,7 @@ class Maintenance
     public function zeroInvalidIpIds()
     { // This zeroes out API IP address IDs in the registrar_account table that are no longer valid. For example, if an
       // IP has been deleted.
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $result = $pdo->query("
             SELECT id

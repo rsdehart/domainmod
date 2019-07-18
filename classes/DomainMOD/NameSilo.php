@@ -3,7 +3,7 @@
  * /classes/DomainMOD/NameSilo.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -29,7 +29,7 @@ class NameSilo
     public function __construct()
     {
         $this->format = new Format();
-        $this->log = new Log('namesilo.class');
+        $this->log = new Log('class.namesilo');
     }
 
     public function getApiUrl($api_key, $domain, $command)
@@ -47,7 +47,9 @@ class NameSilo
     public function apiCall($full_url)
     {
         $handle = curl_init($full_url);
-        curl_setopt( $handle, CURLOPT_RETURNTRANSFER, true );
+        curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYPEER, false);
         $result = curl_exec($handle);
         curl_close($handle);
         return $result;
@@ -115,6 +117,13 @@ class NameSilo
             $autorenewal_result = $array_results[0]["reply"]["auto_renew"];
             $autorenewal_status = $this->processAutorenew($autorenewal_result);
 
+        } elseif ($array_results[0]['reply']['detail'] == 'Domain is not active, or does not belong to this user') {
+
+            $domain_status = 'invalid';
+            $log_message = 'Invalid domain (inactive or nonexistent)';
+            $log_extra = array('Domain' => $domain, 'API Key' => $this->format->obfusc($api_key));
+            $this->log->warning($log_message, $log_extra);
+
         } else {
 
             $log_message = 'Unable to get domain details';
@@ -123,7 +132,7 @@ class NameSilo
 
         }
 
-        return array($expiration_date, $dns_servers, $privacy_status, $autorenewal_status);
+        return array($domain_status, $expiration_date, $dns_servers, $privacy_status, $autorenewal_status);
     }
 
     public function convertToArray($api_result)

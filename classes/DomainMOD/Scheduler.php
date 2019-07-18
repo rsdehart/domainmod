@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Scheduler.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,18 +23,18 @@ namespace DomainMOD;
 
 class Scheduler
 {
-    public $system;
+    public $deeb;
     public $time;
 
     public function __construct()
     {
-        $this->system = new System();
+        $this->deeb = Database::getInstance();
         $this->time = new Time();
     }
 
     public function isRunning($task_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             UPDATE scheduler
@@ -46,7 +46,7 @@ class Scheduler
 
     public function isFinished($task_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             UPDATE scheduler
@@ -61,7 +61,7 @@ class Scheduler
         $current_time = $this->time->stamp();
         $duration = $this->getTimeDifference($timestamp, $current_time);
 
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             UPDATE scheduler
@@ -91,7 +91,7 @@ class Scheduler
 
     public function getTask($task_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT id, `name`, description, `interval`, expression, last_run, last_duration, next_run, active
@@ -100,8 +100,10 @@ class Scheduler
             ORDER BY sort_order ASC");
         $stmt->bindValue('task_id', $task_id, \PDO::PARAM_INT);
         $stmt->execute();
+        $result = $stmt->fetch();
+        $stmt->closeCursor();
 
-        return $stmt->fetch();
+        return $result;
     }
 
     public function createActive($active, $task_id)
@@ -117,7 +119,7 @@ class Scheduler
 
     public function getDateOutput($next_run)
     {
-        if ($next_run == '1978-01-23 00:00:00') {
+        if ($next_run == '1970-01-01 00:00:00') {
             return 'n/a';
         } else {
             return $next_run;

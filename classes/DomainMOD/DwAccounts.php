@@ -3,7 +3,7 @@
  * /classes/DomainMOD/DwAccounts.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,22 +23,22 @@ namespace DomainMOD;
 
 class DwAccounts
 {
-    public $system;
+    public $deeb;
+    public $dwbuild;
     public $log;
     public $time;
-    public $dwbuild;
 
     public function __construct()
     {
-        $this->system = new System();
-        $this->log = new Log('dwaccounts.class');
-        $this->time = new Time();
+        $this->deeb = Database::getInstance();
         $this->dwbuild = new DwBuild();
+        $this->log = new Log('class.dwaccounts');
+        $this->time = new Time();
     }
 
     public function createTable()
     {
-        $this->system->db()->query("
+        $this->deeb->cnxx->query("
             CREATE TABLE IF NOT EXISTS dw_accounts (
                 id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
                 server_id INT(10) UNSIGNED NOT NULL,
@@ -80,14 +80,14 @@ class DwAccounts
 
     public function insertAccounts($api_results, $server_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
         $array_results = $this->dwbuild->convertToArray($api_results);
 
         if ($array_results['metadata']['result'] !== 1) {
 
             $log_message = 'Unable to retrieve Accounts from WHM';
             $log_extra = array('Server ID' => $server_id, 'API Results' => $array_results);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
 
         } else {
 
@@ -170,27 +170,42 @@ class DwAccounts
 
     public function getTotalDwAccounts()
     {
-        return $this->system->db()->query("
+        return $this->deeb->cnxx->query("
             SELECT count(*)
             FROM `dw_accounts`")->fetchColumn();
     }
 
+    public function checkForAccountTable()
+    {
+        return $this->deeb->cnxx->query("SHOW TABLES LIKE 'dw_accounts'")->fetchColumn();
+    }
+
     public function checkForAccounts($domain)
     {
-        $pdo = $this->system->db();
+        $table_exists = $this->checkForAccountTable();
 
-        $stmt = $pdo->prepare("
-            SELECT id
-            FROM dw_accounts
-            WHERE domain = :domain
-            LIMIT 1");
-        $stmt->bindValue('domain', $domain, \PDO::PARAM_STR);
-        $stmt->execute();
-        $result = $stmt->fetchColumn();
+        if ($table_exists) {
 
-        if ($result) {
+            $pdo = $this->deeb->cnxx;
 
-            return 1;
+            $stmt = $pdo->prepare("
+                SELECT id
+                FROM dw_accounts
+                WHERE domain = :domain
+                LIMIT 1");
+            $stmt->bindValue('domain', $domain, \PDO::PARAM_STR);
+            $stmt->execute();
+            $result = $stmt->fetchColumn();
+
+            if ($result) {
+
+                return 1;
+
+            } else {
+
+                return 0;
+
+            }
 
         } else {
 

@@ -3,7 +3,7 @@
  * /admin/dw/servers.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,34 +22,32 @@
 <?php
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
-require_once DIR_ROOT . '/vendor/autoload.php';
-
-$system = new DomainMOD\System();
-$error = new DomainMOD\Error();
-$time = new DomainMOD\Time();
-$layout = new DomainMOD\Layout();
-
-require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/software.inc.php';
+require_once DIR_ROOT . '/vendor/autoload.php';
+
+$deeb = DomainMOD\Database::getInstance();
+$system = new DomainMOD\System();
+$layout = new DomainMOD\Layout();
+$time = new DomainMOD\Time();
+
+require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/dw-servers.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
 $system->authCheck();
 $system->checkAdminUser($_SESSION['s_is_admin']);
+$pdo = $deeb->cnxx;
 
-$export_data = $_GET['export_data'];
+$export_data = (int) $_GET['export_data'];
 
-$sql = "SELECT id, `name`, `host`, protocol, `port`, username, api_token, `hash`, notes, dw_accounts, dw_dns_zones,
-            dw_dns_records, build_end_time, creation_type_id, created_by, insert_time, update_time
-        FROM dw_servers
-        ORDER BY `name`, `host`";
+$result = $pdo->query("
+    SELECT id, `name`, `host`, protocol, `port`, username, api_token, `hash`, notes, dw_accounts, dw_dns_zones,
+        dw_dns_records, build_end_time, creation_type_id, created_by, insert_time, update_time
+    FROM dw_servers
+    ORDER BY `name`, `host`")->fetchAll();
 
-if ($export_data == "1") {
-
-    $result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
+if ($export_data === 1) {
 
     $export = new DomainMOD\Export();
     $export_file = $export->openFile('dw_servers', strtotime($time->stamp()));
@@ -79,9 +77,9 @@ if ($export_data == "1") {
     );
     $export->writeRow($export_file, $row_contents);
 
-    if (mysqli_num_rows($result) > 0) {
+    if ($result) {
 
-        while ($row = mysqli_fetch_object($result)) {
+        foreach ($result as $row) {
 
             $creation_type = $system->getCreationType($row->creation_type_id);
 
@@ -123,16 +121,14 @@ if ($export_data == "1") {
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
 <?php require_once DIR_INC . '/layout/header.inc.php'; ?>
 <a href="add-server.php"><?php echo $layout->showButton('button', 'Add Web Server'); ?></a>
 <?php
-$result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
-
-if (mysqli_num_rows($result) > 0) { ?>
+if ($result) { ?>
 
     <a href="servers.php?export_data=1"><?php echo $layout->showButton('button', 'Export'); ?></a><BR><BR>
 
@@ -150,7 +146,7 @@ if (mysqli_num_rows($result) > 0) { ?>
         </thead>
     <tbody><?php
 
-    while ($row = mysqli_fetch_object($result)) { ?>
+    foreach ($result as $row) { ?>
 
         <tr>
             <td></td>
@@ -168,7 +164,7 @@ if (mysqli_num_rows($result) > 0) { ?>
             </td>
             <td><?php
 
-                if ($row->insert_time != "0000-00-00 00:00:00") {
+                if ($row->insert_time != '1970-01-01 00:00:00') {
 
                     $temp_time = $time->toUserTimezone($row->insert_time);
 
@@ -182,7 +178,7 @@ if (mysqli_num_rows($result) > 0) { ?>
             </td>
             <td><?php
 
-                if ($row->update_time != "0000-00-00 00:00:00") {
+                if ($row->update_time != '1970-01-01 00:00:00') {
 
                     $temp_time = $time->toUserTimezone($row->update_time);
 

@@ -3,7 +3,7 @@
  * /maintenance/update-domain-fees.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,20 +22,17 @@
 <?php
 require_once __DIR__ . '/../_includes/start-session.inc.php';
 require_once __DIR__ . '/../_includes/init.inc.php';
-
+require_once DIR_INC . '/config.inc.php';
+require_once DIR_INC . '/software.inc.php';
 require_once DIR_ROOT . '/vendor/autoload.php';
 
-$system = new DomainMOD\System();
-$error = new DomainMOD\Error();
 $maint = new DomainMOD\Maintenance();
+$system = new DomainMOD\System();
 $time = new DomainMOD\Time();
 $timestamp = $time->stamp();
 
 require_once DIR_INC . '/head.inc.php';
-require_once DIR_INC . '/config.inc.php';
-require_once DIR_INC . '/software.inc.php';
 require_once DIR_INC . '/debug.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
 $system->authCheck();
 $system->readOnlyCheck($_SERVER['HTTP_REFERER']);

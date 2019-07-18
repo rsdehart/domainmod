@@ -7,6 +7,10 @@ namespace Composer\Autoload;
 class ComposerStaticInitb2ab50c1bc2ddce3c955d66d9b575d56
 {
     public static $prefixLengthsPsr4 = array (
+        'G' => 
+        array (
+            'GJClasses\\' => 10,
+        ),
         'D' => 
         array (
             'DomainMOD\\' => 10,
@@ -18,13 +22,17 @@ class ComposerStaticInitb2ab50c1bc2ddce3c955d66d9b575d56
     );
 
     public static $prefixDirsPsr4 = array (
+        'GJClasses\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/chetcuti/gjclasses/src/GJClasses',
+        ),
         'DomainMOD\\' => 
         array (
             0 => __DIR__ . '/../..' . '/classes/DomainMOD',
         ),
         'Cron\\' => 
         array (
-            0 => __DIR__ . '/..' . '/mtdowling/cron-expression/src/Cron',
+            0 => __DIR__ . '/..' . '/dragonmantank/cron-expression/src/Cron',
         ),
     );
 

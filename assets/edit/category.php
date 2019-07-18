@@ -3,7 +3,7 @@
  * /assets/edit/category.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,33 +22,34 @@
 <?php
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
-require_once DIR_ROOT . '/vendor/autoload.php';
-
-$system = new DomainMOD\System();
-$error = new DomainMOD\Error();
-$time = new DomainMOD\Time();
-$form = new DomainMOD\Form();
-
-require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/software.inc.php';
+require_once DIR_ROOT . '/vendor/autoload.php';
+
+$deeb = DomainMOD\Database::getInstance();
+$system = new DomainMOD\System();
+$layout = new DomainMOD\Layout();
+$time = new DomainMOD\Time();
+$form = new DomainMOD\Form();
+$sanitize = new DomainMOD\Sanitize();
+$unsanitize = new DomainMOD\Unsanitize();
+
+require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/assets-edit-category.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
-$pdo = $system->db();
 $system->authCheck();
+$pdo = $deeb->cnxx;
 
-$del = $_GET['del'];
-$really_del = $_GET['really_del'];
+$del = (int) $_GET['del'];
+$really_del = (int) $_GET['really_del'];
 
-$pcid = $_GET['pcid'];
+$pcid = (int) $_GET['pcid'];
 
-$new_category = $_REQUEST['new_category'];
-$new_stakeholder = $_REQUEST['new_stakeholder'];
-$new_notes = $_REQUEST['new_notes'];
-$new_pcid = $_REQUEST['new_pcid'];
+$new_category = $sanitize->text($_REQUEST['new_category']);
+$new_stakeholder = $sanitize->text($_REQUEST['new_stakeholder']);
+$new_notes = $sanitize->text($_REQUEST['new_notes']);
+$new_pcid = (int) $_REQUEST['new_pcid'];
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
@@ -93,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $stmt->bindValue('pcid', $pcid, PDO::PARAM_INT);
     $stmt->execute();
     $result = $stmt->fetch();
+    $stmt->closeCursor();
 
     if ($result) {
 
@@ -104,7 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 }
 
-if ($del == "1") {
+if ($del === 1) {
 
     $stmt = $pdo->prepare("
         SELECT cat_id
@@ -114,6 +116,7 @@ if ($del == "1") {
     $stmt->bindValue('pcid', $pcid, PDO::PARAM_INT);
     $stmt->execute();
     $result = $stmt->fetch();
+    $stmt->closeCursor();
 
     if ($result) {
 
@@ -128,7 +131,7 @@ if ($del == "1") {
 
 }
 
-if ($really_del == "1") {
+if ($really_del === 1) {
 
     $stmt = $pdo->prepare("
         DELETE FROM categories
@@ -146,21 +149,21 @@ if ($really_del == "1") {
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
 <?php require_once DIR_INC . '/layout/header.inc.php'; ?>
 <?php
 echo $form->showFormTop('');
-echo $form->showInputText('new_category', 'Category Name (150)', '', $new_category, '150', '', '1', '', '');
-echo $form->showInputText('new_stakeholder', 'Stakeholder (100)', '', $new_stakeholder, '100', '', '', '', '');
-echo $form->showInputTextarea('new_notes', 'Notes', '', $new_notes, '', '', '');
+echo $form->showInputText('new_category', 'Category Name (150)', '', $unsanitize->text($new_category), '150', '', '1', '', '');
+echo $form->showInputText('new_stakeholder', 'Stakeholder (100)', '', $unsanitize->text($new_stakeholder), '100', '', '', '', '');
+echo $form->showInputTextarea('new_notes', 'Notes', '', $unsanitize->text($new_notes), '', '', '');
 echo $form->showInputHidden('new_pcid', $pcid);
 echo $form->showSubmitButton('Save', '', '');
 echo $form->showFormBottom('');
 ?>
-<BR><a href="category.php?pcid=<?php echo urlencode($pcid); ?>&del=1">DELETE THIS CATEGORY</a>
+<BR><a href="category.php?pcid=<?php echo $pcid; ?>&del=1">DELETE THIS CATEGORY</a>
 <?php require_once DIR_INC . '/layout/footer.inc.php'; ?>
 </body>
 </html>

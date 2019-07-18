@@ -3,7 +3,7 @@
  * /segments/edit.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,31 +22,32 @@
 <?php
 require_once __DIR__ . '/../_includes/start-session.inc.php';
 require_once __DIR__ . '/../_includes/init.inc.php';
-
-require_once DIR_ROOT . '/vendor/autoload.php';
-
-$system = new DomainMOD\System();
-$error = new DomainMOD\Error();
-$maint = new DomainMOD\Maintenance();
-$form = new DomainMOD\Form();
-$time = new DomainMOD\Time();
-$timestamp = $time->stamp();
-$assets = new DomainMOD\Assets();
-
-require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/software.inc.php';
+require_once DIR_ROOT . '/vendor/autoload.php';
+
+$deeb = DomainMOD\Database::getInstance();
+$system = new DomainMOD\System();
+$log = new DomainMOD\Log('/segments/edit.php');
+$maint = new DomainMOD\Maintenance();
+$layout = new DomainMOD\Layout();
+$time = new DomainMOD\Time();
+$form = new DomainMOD\Form();
+$assets = new DomainMOD\Assets();
+
+$timestamp = $time->stamp();
+
+require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/segments-edit.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
-$pdo = $system->db();
 $system->authCheck();
+$pdo = $deeb->cnxx;
 
 $segid = $_GET['segid'];
 
-$del = $_GET['del'];
-$really_del = $_GET['really_del'];
+$del = (int) $_GET['del'];
+$really_del = (int) $_GET['really_del'];
 
 $new_name = $_POST['new_name'];
 $new_description = $_POST['new_description'];
@@ -102,67 +103,87 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         } else {
 
-            $domain = new DomainMOD\Domain();
+            try {
 
-            while (list($key, $new_domain) = each($domain_array)) {
+                $pdo->beginTransaction();
 
-                if (!$domain->checkFormat($new_domain)) {
-                    echo 'invalid domain ' . $key;
-                    exit;
+                $domain = new DomainMOD\Domain();
+
+                foreach ($domain_array as $key => $new_domain) {
+
+                    if (!$domain->checkFormat($new_domain)) {
+                        echo 'invalid domain ' . $key;
+                        exit;
+                    }
+
                 }
 
-            }
+                $new_data_formatted = $format->formatForMysql($domain_array);
 
-            $new_data_formatted = $format->formatForMysql($dbcon, $domain_array);
-
-            $stmt = $pdo->prepare("
-                UPDATE segments
-                SET `name` = :new_name,
-                    description = :new_description,
-                    segment = :new_data_formatted,
-                    number_of_domains = :number_of_domains,
-                    notes = :new_notes,
-                    update_time = :timestamp
-                WHERE id = :segid");
-            $stmt->bindValue('new_name', $new_name, PDO::PARAM_STR);
-            $stmt->bindValue('new_description', $new_description, PDO::PARAM_LOB);
-            $stmt->bindValue('new_data_formatted', $new_data_formatted, PDO::PARAM_LOB);
-            $stmt->bindValue('number_of_domains', $number_of_domains, PDO::PARAM_INT);
-            $stmt->bindValue('new_notes', $new_notes, PDO::PARAM_LOB);
-            $stmt->bindValue('timestamp', $timestamp, PDO::PARAM_STR);
-            $stmt->bindValue('segid', $segid, PDO::PARAM_INT);
-            $stmt->execute();
-
-            $stmt = $pdo->prepare("
-                DELETE FROM segment_data
-                WHERE segment_id = :new_segid");
-            $stmt->bindValue('new_segid', $new_segid, PDO::PARAM_INT);
-            $stmt->execute();
-
-            $stmt = $pdo->prepare("
-                INSERT INTO segment_data
-                (segment_id, domain, update_time)
-                VALUES
-                (:new_segid, :domain, :timestamp)");
-            $stmt->bindValue('new_segid', $new_segid, PDO::PARAM_INT);
-            $stmt->bindParam('domain', $bind_domain, PDO::PARAM_STR);
-            $stmt->bindValue('timestamp', $timestamp, PDO::PARAM_STR);
-
-            foreach ($domain_array as $domain) {
-
-                $bind_domain = $domain;
+                $stmt = $pdo->prepare("
+                    UPDATE segments
+                    SET `name` = :new_name,
+                        description = :new_description,
+                        segment = :new_data_formatted,
+                        number_of_domains = :number_of_domains,
+                        notes = :new_notes,
+                        update_time = :timestamp
+                    WHERE id = :segid");
+                $stmt->bindValue('new_name', $new_name, PDO::PARAM_STR);
+                $stmt->bindValue('new_description', $new_description, PDO::PARAM_LOB);
+                $stmt->bindValue('new_data_formatted', $new_data_formatted, PDO::PARAM_LOB);
+                $stmt->bindValue('number_of_domains', $number_of_domains, PDO::PARAM_INT);
+                $stmt->bindValue('new_notes', $new_notes, PDO::PARAM_LOB);
+                $stmt->bindValue('timestamp', $timestamp, PDO::PARAM_STR);
+                $stmt->bindValue('segid', $segid, PDO::PARAM_INT);
                 $stmt->execute();
 
+                $stmt = $pdo->prepare("
+                    DELETE FROM segment_data
+                    WHERE segment_id = :new_segid");
+                $stmt->bindValue('new_segid', $new_segid, PDO::PARAM_INT);
+                $stmt->execute();
+
+                $stmt = $pdo->prepare("
+                    INSERT INTO segment_data
+                    (segment_id, domain, update_time)
+                    VALUES
+                    (:new_segid, :domain, :timestamp)");
+                $stmt->bindValue('new_segid', $new_segid, PDO::PARAM_INT);
+                $stmt->bindParam('domain', $bind_domain, PDO::PARAM_STR);
+                $stmt->bindValue('timestamp', $timestamp, PDO::PARAM_STR);
+
+                foreach ($domain_array as $domain) {
+
+                    $bind_domain = $domain;
+                    $stmt->execute();
+
+                }
+
+                $segid = $new_segid;
+
+                $maint->updateSegments();
+
+                $pdo->commit();
+
+                $_SESSION['s_message_success'] .= "Segment " . $new_name . " Updated<BR>";
+
+                header("Location: ../segments/");
+                exit;
+
+            } catch (Exception $e) {
+
+                $pdo->rollback();
+
+                $log_message = 'Unable to update segment';
+                $log_extra = array('Error' => $e);
+                $log->critical($log_message, $log_extra);
+
+                $_SESSION['s_message_danger'] .= $log_message . '<BR>';
+
+                throw $e;
+
             }
-
-            $segid = $new_segid;
-
-            $_SESSION['s_message_success'] .= "Segment " . $new_name . " Updated<BR>";
-
-            $maint->updateSegments();
-
-            header("Location: ../segments/");
-            exit;
 
         }
 
@@ -182,6 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $stmt->bindValue('segid', $segid, PDO::PARAM_INT);
     $stmt->execute();
     $result = $stmt->fetch();
+    $stmt->closeCursor();
 
     if ($result) {
 
@@ -199,41 +221,61 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 }
 
-if ($del == "1") {
+if ($del === 1) {
 
     $_SESSION['s_message_danger'] .= "Are you sure you want to delete this Segment?<BR><BR><a
         href=\"edit.php?segid=" . $segid . "&really_del=1\">YES, REALLY DELETE THIS SEGMENT</a><BR>";
 
 }
 
-if ($really_del == "1") {
+if ($really_del === 1) {
 
-    $segment = new DomainMOD\Segment();
-    $temp_segment_name = $segment->getName($segid);
+    try {
 
-    $stmt = $pdo->prepare("
-        DELETE FROM segments
-        WHERE id = :segid");
-    $stmt->bindValue('segid', $segid, PDO::PARAM_INT);
-    $stmt->execute();
+        $pdo->beginTransaction();
 
-    $stmt = $pdo->prepare("
-        DELETE FROM segment_data
-        WHERE segment_id = :segid");
-    $stmt->bindValue('segid', $segid, PDO::PARAM_INT);
-    $stmt->execute();
+        $segment = new DomainMOD\Segment();
+        $temp_segment_name = $segment->getName($segid);
 
-    $_SESSION['s_message_success'] .= "Segment " . $temp_segment_name . " Deleted<BR>";
+        $stmt = $pdo->prepare("
+            DELETE FROM segments
+            WHERE id = :segid");
+        $stmt->bindValue('segid', $segid, PDO::PARAM_INT);
+        $stmt->execute();
 
-    header("Location: ../segments/");
-    exit;
+        $stmt = $pdo->prepare("
+            DELETE FROM segment_data
+            WHERE segment_id = :segid");
+        $stmt->bindValue('segid', $segid, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $pdo->commit();
+
+        $_SESSION['s_message_success'] .= "Segment " . $temp_segment_name . " Deleted<BR>";
+
+        header("Location: ../segments/");
+        exit;
+
+    } catch (Exception $e) {
+
+        $pdo->rollback();
+
+        $log_message = 'Unable to delete segment';
+        $log_extra = array('Error' => $e);
+        $log->critical($log_message, $log_extra);
+
+        $_SESSION['s_message_danger'] .= $log_message . '<BR>';
+
+        throw $e;
+
+    }
 
 }
 ?>
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">

@@ -3,7 +3,7 @@
  * /admin/ssl-fields/index.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,26 +22,24 @@
 <?php //@formatter:off
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
+require_once DIR_INC . '/config.inc.php';
+require_once DIR_INC . '/software.inc.php';
 require_once DIR_ROOT . '/vendor/autoload.php';
 
+$deeb = DomainMOD\Database::getInstance();
 $system = new DomainMOD\System();
-$error = new DomainMOD\Error();
 $layout = new DomainMOD\Layout();
 $time = new DomainMOD\Time();
 
 require_once DIR_INC . '/head.inc.php';
-require_once DIR_INC . '/config.inc.php';
-require_once DIR_INC . '/software.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/admin-custom-ssl-fields.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
-$pdo = $system->db();
 $system->authCheck();
 $system->checkAdminUser($_SESSION['s_is_admin']);
+$pdo = $deeb->cnxx;
 
-$export_data = $_GET['export_data'];
+$export_data = (int) $_GET['export_data'];
 
 $result = $pdo->query("
     SELECT f.id, f.name, f.field_name, f.description, f.notes, f.creation_type_id, f.created_by, f.insert_time, f.update_time, t.name AS type
@@ -49,7 +47,7 @@ $result = $pdo->query("
     WHERE f.type_id = t.id
     ORDER BY f.name")->fetchAll();
 
-if ($export_data == '1') {
+if ($export_data === 1) {
 
     $export = new DomainMOD\Export();
     $export_file = $export->openFile('custom_ssl_field_list', strtotime($time->stamp()));
@@ -110,7 +108,7 @@ if ($export_data == '1') {
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
@@ -165,7 +163,7 @@ if (!$result) { ?>
             </td>
             <td><?php
 
-                if ($row->update_time != '0000-00-00 00:00:00') {
+                if ($row->update_time != '1970-01-01 00:00:00') {
 
                     $temp_update_time = $time->toUserTimezone($row->update_time);
 

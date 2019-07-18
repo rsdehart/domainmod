@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Segment.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,14 +23,13 @@ namespace DomainMOD;
 
 class Segment
 {
-    public $error;
+    public $deeb;
     public $log;
-    public $system;
 
     public function __construct()
     {
-        $this->log = new Log('segment.class');
-        $this->system = new System();
+        $this->deeb = Database::getInstance();
+        $this->log = new Log('class.segment');
     }
 
     public function trimLength($input_segment, $max_length)
@@ -57,7 +56,7 @@ class Segment
 
     public function getSegment($seg_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT `segment`
@@ -71,7 +70,7 @@ class Segment
 
             $log_message = 'Unable to retrieve Segment';
             $log_extra = array('Segment ID' => $seg_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -83,7 +82,7 @@ class Segment
 
     public function getName($seg_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT `name`
@@ -97,7 +96,7 @@ class Segment
 
             $log_message = 'Unable to retrieve Segment name';
             $log_extra = array('Segment ID' => $seg_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -109,7 +108,7 @@ class Segment
 
     public function getNumberOfDomains($seg_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT number_of_domains
@@ -123,7 +122,7 @@ class Segment
 
             $log_message = 'Unable to retrieve Number of Domains for Segment';
             $log_extra = array('Segment ID' => $seg_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {

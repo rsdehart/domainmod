@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Smtp.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,42 +23,64 @@ namespace DomainMOD;
 
 class Smtp
 {
+    public $deeb;
     public $log;
-    public $system;
+    public $format;
+    public $server;
+    public $protocol;
+    public $port;
+    public $email_address;
+    public $username;
+    public $password;
 
     public function __construct()
     {
-        $this->log = new Log('smtp.class');
-        $this->system = new System();
+        $this->deeb = Database::getInstance();
+        $this->log = new Log('class.smtp');
+        $this->format = new Format();
+        list($this->server, $this->protocol, $this->port, $this->email_address, $this->username, $this->password)
+            = $this->getSettings();
     }
 
-    public function send($reply_address, $to_address, $to_name, $subject, $message_html, $message_text)
+    public function send($email_title, $to_address, $reply_address, $subject, $message_html, $message_text)
     {
         require_once DIR_ROOT . '/vendor/autoload.php';
         $mail = new \PHPMailer();
 
-        list($server, $protocol, $port, $email_address, $username, $password) = $this->getSettings();
-
         // $mail->SMTPDebug = 3;  // Enable verbose debug output
         $mail->isSMTP();
         $mail->CharSet = EMAIL_ENCODING_TYPE;
-        $mail->SMTPSecure = $protocol;
-        $mail->Host = $server;
-        $mail->Port = $port;
+        $mail->SMTPSecure = $this->protocol;
+        $mail->Host = $this->server;
+        $mail->Port = $this->port;
         $mail->SMTPAuth = true;
-        $mail->Username = $username;
-        $mail->Password = $password;
-        $mail->setFrom($email_address, 'DomainMOD');
-        $mail->addAddress($to_address, $to_name);
-        $mail->addReplyTo($reply_address, 'DomainMOD System Admin');
+        $mail->Username = $this->username;
+        $mail->Password = $this->password;
+        $mail->setFrom($this->email_address, 'DomainMOD');
+        $mail->addAddress($to_address);
+        $mail->addReplyTo($reply_address, 'DomainMOD Admin');
         $mail->isHTML(true);  // Set email format to HTML
         $mail->Subject = $subject;
         $mail->Body = $message_html;
         $mail->AltBody = $message_text;
 
-        if(!$mail->send()) {
-            echo 'Message could not be sent.<BR><BR>Please check your SMTP server and account information and try again.';
-            exit;
+        $log_extra = array('Method' => 'SMTP', 'To' => $to_address, 'From' => $this->email_address,
+            'Subject' => $subject, 'Server' => $this->server, 'Port' => $this->port, 'Protocol' => $this->protocol,
+            'Username' => $this->format->obfusc($this->username), 'Password' => $this->format->obfusc($this->password),
+            'CharSet' => EMAIL_ENCODING_TYPE);
+
+        if ($mail->send()) {
+
+            $log_message = $email_title . ' Email :: SEND SUCCEEDED';
+            $this->log->info($log_message, $log_extra);
+            return true;
+
+        } else {
+
+            $log_message = $email_title . ' Email :: SEND FAILED';
+            $this->log->error($log_message, $log_extra);
+            return false;
+
         }
     }
 
@@ -71,14 +93,19 @@ class Smtp
         $username = '';
         $password = '';
 
-        $result = $this->system->db()->query("
+        $pdo = $this->deeb->cnxx;
+
+        $stmt = $pdo->prepare("
             SELECT smtp_server, smtp_protocol, smtp_port, smtp_email_address, smtp_username, smtp_password
-            FROM settings")->fetch();
+            FROM settings");
+        $stmt->execute();
+        $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         if (!$result) {
 
             $log_message = 'Unable to retrieve SMTP settings';
-            $this->log->error($log_message);
+            $this->log->critical($log_message);
 
         } else {
 

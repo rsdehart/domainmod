@@ -3,7 +3,7 @@
  * /_includes/layout/header.inc.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -151,7 +151,7 @@
                         Currency: <?php echo $_SESSION['s_default_currency']; ?><BR>
                         Time Zone: <?php echo $_SESSION['s_default_timezone']; ?><BR>
                         Expiration Emails: <?php
-                        if ($_SESSION['s_expiration_email'] == '1') {
+                        if ($_SESSION['s_expiration_emails'] == '1') {
                             echo "Yes";
                         } else {
                             echo "No";
@@ -220,7 +220,7 @@
       <!-- search form -->
       <form action="<?php echo $web_root; ?>/domains/index.php" method="get" class="sidebar-form">
         <div class="input-group">
-          <input type="text" name="search_for" class="form-control" placeholder="Domain Keyword Search"<?php if ($search_for && $search_for != '') echo 'value="' . $search_for . '"'; ?>"'>
+          <input type="text" name="search_for" class="form-control" placeholder="Domain Keyword Search"<?php if ($search_for && $search_for != '') echo ' value="' . $search_for . '"'; ?>>
               <span class="input-group-btn">
                 <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i>
                 </button>
@@ -272,6 +272,11 @@
         if ($_SESSION['s_message_success'] != "") {
             echo $system->showMessageSuccess($_SESSION['s_message_success']);
             unset($_SESSION['s_message_success']);
+        }
+
+        if ($_SESSION['s_message_info'] != "") {
+            echo $system->showMessageInfo($_SESSION['s_message_info']);
+            unset($_SESSION['s_message_info']);
         }
 
         require_once DIR_INC . '/layout/table-maintenance.inc.php';

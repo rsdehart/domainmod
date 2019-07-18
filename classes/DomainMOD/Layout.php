@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Layout.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,6 +23,11 @@ namespace DomainMOD;
 
 class Layout
 {
+
+    public function pageTitle($page_title)
+    {
+        return SOFTWARE_TITLE . ' :: ' . $page_title;
+    }
 
     public function jumpMenu()
     {
@@ -54,8 +59,7 @@ class Layout
         } elseif ($colour == 'green') {
             $text_colour = '#009933';
         }
-        ob_start(); ?>
-        <strong><span style="color:<?php echo $text_colour; ?>"><?php echo $text_to_display; ?></span></strong><?php
+        ob_start(); ?><strong><span style="color:<?php echo $text_colour; ?>"><?php echo $text_to_display; ?></span></strong><?php
         return ob_get_clean();
     }
 

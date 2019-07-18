@@ -3,7 +3,7 @@
  * /classes/DomainMOD/DwRecords.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,22 +23,22 @@ namespace DomainMOD;
 
 class DwRecords
 {
-    public $system;
+    public $deeb;
+    public $dwbuild;
     public $log;
     public $time;
-    public $dwbuild;
 
     public function __construct()
     {
-        $this->system = new System();
-        $this->log = new Log('dwrecords.class');
-        $this->time = new Time();
+        $this->deeb = Database::getInstance();
         $this->dwbuild = new DwBuild();
+        $this->log = new Log('class.dwrecords');
+        $this->time = new Time();
     }
 
     public function createTable()
     {
-        $this->system->db()->query("
+        $this->deeb->cnxx->query("
             CREATE TABLE IF NOT EXISTS dw_dns_records (
                 id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
                 server_id INT(10) UNSIGNED NOT NULL,
@@ -81,14 +81,14 @@ class DwRecords
 
     public function insertRecords($api_results, $server_id, $zone_id, $domain)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
         $array_results = $this->dwbuild->convertToArray($api_results);
 
         if ($array_results['metadata']['result'] !== 1) {
 
             $log_message = 'Unable to retrieve DNS Records from WHM';
             $log_extra = array('Server ID' => $server_id, 'Domain' => $domain, 'Zone ID' => $zone_id, 'API Results' => $array_results);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
 
         } else {
 
@@ -158,7 +158,7 @@ class DwRecords
 
     public function getTotalDwRecords()
     {
-        return $this->system->db()->query("
+        return $this->deeb->cnxx->query("
             SELECT count(*)
             FROM `dw_dns_records`")->fetchColumn();
     }

@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Conversion.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,20 +23,20 @@ namespace DomainMOD;
 
 class Conversion
 {
+    public $deeb;
     public $log;
-    public $system;
     public $time;
 
     public function __construct()
     {
-        $this->log = new Log('conversion.class');
-        $this->system = new System();
+        $this->deeb = Database::getInstance();
+        $this->log = new Log('class.conversion');
         $this->time = new Time();
     }
 
-    public function updateRates($default_currency, $user_id)
+    public function updateRates($default_currency, $user_id, $from_cron = false)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
         $result = $this->getActiveCurrencies();
 
         $stmt = $pdo->prepare("
@@ -49,7 +49,7 @@ class Conversion
 
         foreach ($result as $row) {
 
-            $conversion_rate = $this->getConversionRate($row->currency, $default_currency);
+            $conversion_rate = $row->currency == $default_currency ? 1 : $this->getConvRate($row->currency, $default_currency, $from_cron);
 
             $bind_currency_id = $row->id;
             $stmt->execute();
@@ -62,7 +62,7 @@ class Conversion
                 $log_message = 'Unable to retrieve user currency';
                 $log_extra = array('User ID' => $user_id, 'Currency ID' => $row->id, 'Default Currency' =>
                     $default_currency, 'Conversion Rate' => $conversion_rate);
-                $this->log->error($log_message, $log_extra);
+                $this->log->critical($log_message, $log_extra);
 
             } else {
 
@@ -81,7 +81,7 @@ class Conversion
 
     public function getActiveCurrencies()
     {
-        $result = $this->system->db()->query("
+        $result = $this->deeb->cnxx->query("
             SELECT id, currency
             FROM
             (  SELECT c.id, c.currency
@@ -101,7 +101,7 @@ class Conversion
         if (!$result) {
 
             $log_message = 'Unable to retrieve active currencies';
-            $this->log->error($log_message);
+            $this->log->critical($log_message);
             return $log_message;
 
         } else {
@@ -111,34 +111,9 @@ class Conversion
         }
     }
 
-    public function getConversionRate($from_currency, $to_currency)
-    {
-        $full_url = "http://download.finance.yahoo.com/d/quotes.csv?e=.csv&f=sl1d1t1&s=" . $from_currency . $to_currency . "=X";
-        $handle = curl_init($full_url);
-        curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
-        $result = curl_exec($handle);
-        curl_close($handle);
-        $api_call_split = explode(",", $result);
-        $conversion_rate = $api_call_split[1];
-
-        if ($conversion_rate != '' && $conversion_rate != 'N/A' && $conversion_rate != 'n/a') {
-
-            return $conversion_rate;
-
-        } else {
-
-            $log_message = 'Unable to retrieve Yahoo! Finance currency conversion';
-            $log_extra = array('From Currency' => $from_currency, 'To Currency' => $to_currency,
-                               'Conversion Rate Result' => $conversion_rate);
-            $this->log->error($log_message, $log_extra);
-            return $log_message;
-
-        }
-    }
-
     public function updateConversionRate($conversion_rate, $is_existing, $currency_id, $user_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         if ($is_existing == '1') {
 
@@ -178,6 +153,24 @@ class Conversion
             $this->log->info($log_message, $log_extra);
 
         }
+    }
+
+    public function getConvRate($from_currency, $to_currency, $from_cron = false)
+    {
+        if ($from_cron === false) {
+
+            $converter_source = $_SESSION['s_system_currency_converter'];
+
+        } elseif ($from_cron === true) {
+
+            $converter_source = $this->deeb->cnxx->query("
+                SELECT `currency_converter`
+                FROM `settings`")->fetchColumn();
+
+        }
+
+        $currency = new \GJClasses\Currency($converter_source);
+        return $currency->getConvRate($from_currency, $to_currency);
     }
 
 } //@formatter:on

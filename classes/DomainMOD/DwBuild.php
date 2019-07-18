@@ -3,7 +3,7 @@
  * /classes/DomainMOD/DwBuild.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,13 +23,13 @@ namespace DomainMOD;
 
 class DwBuild
 {
+    public $deeb;
     public $log;
-    public $system;
 
     public function __construct()
     {
-        $this->log = new Log('dwbuild.class');
-        $this->system = new System();
+        $this->deeb = Database::getInstance();
+        $this->log = new Log('class.dwbuild');
     }
 
     public function build()
@@ -41,7 +41,7 @@ class DwBuild
         $stats = new DwStats();
         $time = new Time();
 
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
         $result = $servers->get();
 
         if (!$result) {
@@ -60,11 +60,11 @@ class DwBuild
             UPDATE dw_servers
             SET build_status_overall = '0',
                 build_start_time_overall = :build_start_time_o,
-                build_end_time_overall = '1978-01-23 00:00:00',
+                build_end_time_overall = '1970-01-01 00:00:00',
                 build_time = '0',
                 build_status = '0',
-                build_start_time = '1978-01-23 00:00:00',
-                build_end_time = '1978-01-23 00:00:00',
+                build_start_time = '1970-01-01 00:00:00',
+                build_end_time = '1970-01-01 00:00:00',
                 build_time_overall = '0',
                 dw_accounts = '0',
                 dw_dns_zones = '0',
@@ -94,7 +94,7 @@ class DwBuild
 
     public function dropDwTables()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
         $pdo->query("DROP TABLE IF EXISTS dw_accounts");
         $pdo->query("DROP TABLE IF EXISTS dw_dns_zones");
         $pdo->query("DROP TABLE IF EXISTS dw_dns_records");
@@ -102,7 +102,7 @@ class DwBuild
 
     public function buildFinish($build_start_time_o)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         list($build_end_time_o, $total_build_time_o) = $this->getBuildTime($build_start_time_o);
 
@@ -146,15 +146,15 @@ class DwBuild
     {
         if ($empty_assets == '1') {
 
-            $this->system->db()->query("
+            $this->deeb->cnxx->query("
                 UPDATE dw_servers
                 SET build_status_overall = '0',
-                    build_start_time_overall = '1978-01-23 00:00:00',
-                    build_end_time_overall = '1978-01-23 00:00:00',
+                    build_start_time_overall = '1970-01-01 00:00:00',
+                    build_end_time_overall = '1970-01-01 00:00:00',
                     build_time = '0',
                     build_status = '0',
-                    build_start_time = '1978-01-23 00:00:00',
-                    build_end_time = '1978-01-23 00:00:00',
+                    build_start_time = '1970-01-01 00:00:00',
+                    build_end_time = '1970-01-01 00:00:00',
                     build_time_overall = '0',
                     build_status_overall = '0',
                     dw_accounts = '0',
@@ -172,11 +172,7 @@ class DwBuild
     public function apiGet($api_call, $host, $protocol, $port, $username, $api_token, $hash)
     {
         $query = $protocol . "://" . $host . ":" . $port . $api_call;
-        $header = '';
         $curl = curl_init(); // Create Curl Object
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0); // Allow certs that do not match the domain
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0); // Allow self-signed certs
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1); // Return contents of transfer on curl_exec
         $header = array();
         if ($api_token != "") {
             $header[0] = "Authorization: WHM " . $username . ":" . $api_token;
@@ -184,6 +180,9 @@ class DwBuild
             $header[0] = "Authorization: WHM " . $username . ":" . preg_replace("'(\r|\n)'", "", $hash); // Remove newlines
         }
         curl_setopt($curl, CURLOPT_HTTPHEADER, $header); // Set curl header
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true); // Return contents of transfer on curl_exec
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false); // Allow certs that do not match the domain
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false); // Allow self-signed certs
         curl_setopt($curl, CURLOPT_URL, $query); // Set your URL
         $api_results = curl_exec($curl); // Execute Query, assign to $api_results
         if ($api_results === false) {

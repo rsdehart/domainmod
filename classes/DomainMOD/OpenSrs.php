@@ -3,7 +3,7 @@
  * /classes/DomainMOD/OpenSrs.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -29,7 +29,7 @@ class OpenSrs
     public function __construct()
     {
         $this->format = new Format();
-        $this->log = new Log('opensrs.class');
+        $this->log = new Log('class.opensrs');
     }
 
     public function domainList()
@@ -132,9 +132,11 @@ EOD;
             'Content-Type:text/xml',
             'X-Username:' . $account_username,
             'X-Signature:' . md5(md5($xml . $api_key) .  $api_key)));
-        curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($handle, CURLOPT_POST, 1);
         curl_setopt($handle, CURLOPT_POSTFIELDS, $xml);
+        curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYPEER, false);
         $result = curl_exec($handle);
         return $result;
     }
@@ -150,7 +152,7 @@ EOD;
 
         if ($api_call_status == '1') {
 
-            foreach(preg_split("/((\r?\n)|(\r\n?))/", $api_results) as $xml_line) {
+            foreach (preg_split("/((\r?\n)|(\r\n?))/", $api_results) as $xml_line) {
 
                 if (preg_match('/<item key="name">(.*)<\/item>/', $xml_line, $match)) {
                     $domain_list[] = $match[1];
@@ -185,7 +187,7 @@ EOD;
 
             $dns_result = array();
 
-            foreach(preg_split("/((\r?\n)|(\r\n?))/", $api_results) as $xml_line) {
+            foreach (preg_split("/((\r?\n)|(\r\n?))/", $api_results) as $xml_line) {
 
                 // get expiration date
                 if (preg_match('/<item key="expiredate">(.*)<\/item>/', $xml_line, $match)) {
@@ -220,7 +222,7 @@ EOD;
 
         if ($api_call_status == '1') {
 
-            foreach(preg_split("/((\r?\n)|(\r\n?))/", $api_results) as $xml_line) {
+            foreach (preg_split("/((\r?\n)|(\r\n?))/", $api_results) as $xml_line) {
 
                 // get privacy status
                 if (preg_match('/<item key="state">(.*)<\/item>/', $xml_line, $match)) {
@@ -243,7 +245,7 @@ EOD;
     public function apiStatus($api_results)
     {
         $status = '';
-        foreach(preg_split("/((\r?\n)|(\r\n?))/", $api_results) as $xml_line) {
+        foreach (preg_split("/((\r?\n)|(\r\n?))/", $api_results) as $xml_line) {
             if (preg_match('/<item key="response_code">200<\/item>/', $xml_line)) {
                 $status = '1';
             }

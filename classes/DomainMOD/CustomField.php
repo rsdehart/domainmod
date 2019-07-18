@@ -3,7 +3,7 @@
  * /classes/DomainMOD/CustomField.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,11 +23,11 @@ namespace DomainMOD;
 
 class CustomField
 {
-    public $system;
+    public $deeb;
 
     public function __construct()
     {
-        $this->system = new System();
+        $this->deeb = Database::getInstance();
     }
 
     public function checkFieldFormat($input_field)
@@ -65,7 +65,7 @@ class CustomField
 
     public function queryCustomFields($table_name)
     {
-        return $this->system->db()->query("
+        return $this->deeb->cnxx->query("
             SELECT field_name
             FROM " . $table_name . "
             ORDER BY `name` ASC")->fetchAll();
@@ -88,6 +88,82 @@ class CustomField
         }
 
         return $columns;
+    }
+
+    public function getCDFData()
+    {
+        $custom_domain_field_data = array();
+
+        $result = $this->deeb->cnxx->query("
+            SELECT name, field_name, type_id
+            FROM domain_fields
+            ORDER BY name")->fetchAll(\PDO::FETCH_ASSOC);
+
+        if ($result) {
+
+            $count = 0;
+
+            foreach ($result as $field_values) {
+
+                $custom_domain_field_data[$count]['name'] = $field_values['name'];
+                $custom_domain_field_data[$count]['field'] = $field_values['field_name'];
+                $custom_domain_field_data[$count]['type_id'] = $field_values['type_id'];
+                $custom_domain_field_data[$count]['display_field'] = 'dispcdf_' . $field_values['field_name'];
+
+                $stmt = $this->deeb->cnxx->prepare("
+                    SELECT  dispcdf_" . $field_values['field_name'] . "
+                    FROM user_settings
+                    WHERE user_id = :user_id");
+                $stmt->bindValue('user_id', $_SESSION['s_user_id'], \PDO::PARAM_INT);
+                $stmt->execute();
+                $custom_domain_field_data[$count]['value'] = $stmt->fetchColumn();
+
+                $count++;
+
+            }
+
+        }
+
+        return $custom_domain_field_data;
+
+    }
+
+    public function getCSFData()
+    {
+        $custom_ssl_field_data = array();
+
+        $result = $this->deeb->cnxx->query("
+            SELECT name, field_name, type_id
+            FROM ssl_cert_fields
+            ORDER BY name")->fetchAll(\PDO::FETCH_ASSOC);
+
+        if ($result) {
+
+            $count = 0;
+
+            foreach ($result as $field_values) {
+
+                $custom_ssl_field_data[$count]['name'] = $field_values['name'];
+                $custom_ssl_field_data[$count]['field'] = $field_values['field_name'];
+                $custom_ssl_field_data[$count]['type_id'] = $field_values['type_id'];
+                $custom_ssl_field_data[$count]['display_field'] = 'dispcsf_' . $field_values['field_name'];
+
+                $stmt = $this->deeb->cnxx->prepare("
+                    SELECT  dispcsf_" . $field_values['field_name'] . "
+                    FROM user_settings
+                    WHERE user_id = :user_id");
+                $stmt->bindValue('user_id', $_SESSION['s_user_id'], \PDO::PARAM_INT);
+                $stmt->execute();
+                $custom_ssl_field_data[$count]['value'] = $stmt->fetchColumn();
+
+                $count++;
+
+            }
+
+        }
+
+        return $custom_ssl_field_data;
+
     }
 
 } //@formatter:on

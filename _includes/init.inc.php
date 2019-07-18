@@ -3,7 +3,7 @@
  * /_includes/init.inc.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,6 +23,7 @@
 // PHP named constants
 define('DIR_ROOT', dirname(dirname(__FILE__)));
 define('DIR_INC', DIR_ROOT . '/_includes');
+define('DIR_TEMP', DIR_ROOT . '/temp');
 define('WEBROOT_THEME', '_includes/theme');
 define('EMAIL_ENCODING_TYPE', 'UTF-8'); // UTF-8 or iso-8859-1
 

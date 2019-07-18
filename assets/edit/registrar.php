@@ -3,7 +3,7 @@
  * /assets/edit/registrar.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,35 +22,37 @@
 <?php
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
-require_once DIR_ROOT . '/vendor/autoload.php';
-
-$system = new DomainMOD\System();
-$error = new DomainMOD\Error();
-$time = new DomainMOD\Time();
-$form = new DomainMOD\Form();
-
-require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/software.inc.php';
+require_once DIR_ROOT . '/vendor/autoload.php';
+
+$deeb = DomainMOD\Database::getInstance();
+$system = new DomainMOD\System();
+$log = new DomainMOD\Log('/assets/edit/registrar.php');
+$layout = new DomainMOD\Layout();
+$time = new DomainMOD\Time();
+$form = new DomainMOD\Form();
+$sanitize = new DomainMOD\Sanitize();
+$unsanitize = new DomainMOD\Unsanitize();
+
+require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/assets-edit-registrar.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
-$pdo = $system->db();
 $system->authCheck();
+$pdo = $deeb->cnxx;
 
-$del = $_GET['del'];
-$really_del = $_GET['really_del'];
+$del = (int) $_GET['del'];
+$really_del = (int) $_GET['really_del'];
 
-$rid = $_REQUEST['rid'];
-$new_registrar = $_POST['new_registrar'];
-$new_url = $_POST['new_url'];
-$new_api_registrar_id = $_POST['new_api_registrar_id'];
-$new_notes = $_POST['new_notes'];
+$rid = (int) $_REQUEST['rid'];
+$new_registrar = $sanitize->text($_POST['new_registrar']);
+$new_url = $sanitize->text($_POST['new_url']);
+$new_api_registrar_id = (int) $_POST['new_api_registrar_id'];
+$new_notes = $sanitize->text($_POST['new_notes']);
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    
+
     $system->readOnlyCheck($_SERVER['HTTP_REFERER']);
 
     if ($new_registrar != "") {
@@ -92,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $stmt->bindValue('rid', $rid, PDO::PARAM_INT);
     $stmt->execute();
     $result = $stmt->fetch();
+    $stmt->closeCursor();
 
     if ($result) {
 
@@ -104,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 }
 
-if ($del == "1") {
+if ($del === 1) {
 
     $stmt = $pdo->prepare("
         SELECT registrar_id
@@ -150,47 +153,67 @@ if ($del == "1") {
 
 }
 
-if ($really_del == "1") {
+if ($really_del === 1) {
 
-    $stmt = $pdo->prepare("
-        DELETE FROM fees
-        WHERE registrar_id = :rid");
-    $stmt->bindValue('rid', $rid, PDO::PARAM_INT);
-    $stmt->execute();
+    try {
 
-    $stmt = $pdo->prepare("
-        DELETE FROM registrar_accounts
-        WHERE registrar_id = :rid");
-    $stmt->bindValue('rid', $rid, PDO::PARAM_INT);
-    $stmt->execute();
+        $pdo->beginTransaction();
 
-    $stmt = $pdo->prepare("
-        DELETE FROM registrars
-        WHERE id = :rid");
-    $stmt->bindValue('rid', $rid, PDO::PARAM_INT);
-    $stmt->execute();
+        $stmt = $pdo->prepare("
+            DELETE FROM fees
+            WHERE registrar_id = :rid");
+        $stmt->bindValue('rid', $rid, PDO::PARAM_INT);
+        $stmt->execute();
 
-    $_SESSION['s_message_success'] .= "Registrar " . $new_registrar . " Deleted<BR>";
+        $stmt = $pdo->prepare("
+            DELETE FROM registrar_accounts
+            WHERE registrar_id = :rid");
+        $stmt->bindValue('rid', $rid, PDO::PARAM_INT);
+        $stmt->execute();
 
-    $system->checkExistingAssets();
+        $stmt = $pdo->prepare("
+            DELETE FROM registrars
+            WHERE id = :rid");
+        $stmt->bindValue('rid', $rid, PDO::PARAM_INT);
+        $stmt->execute();
 
-    header("Location: ../registrars.php");
-    exit;
+        $system->checkExistingAssets();
+
+        $pdo->commit();
+
+        $_SESSION['s_message_success'] .= "Registrar " . $new_registrar . " Deleted<BR>";
+
+        header("Location: ../registrars.php");
+        exit;
+
+    } catch (Exception $e) {
+
+        $pdo->rollback();
+
+        $log_message = 'Unable to delete registrar';
+        $log_extra = array('Error' => $e);
+        $log->critical($log_message, $log_extra);
+
+        $_SESSION['s_message_danger'] .= $log_message . '<BR>';
+
+        throw $e;
+
+    }
 
 }
 ?>
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
 <?php require_once DIR_INC . '/layout/header.inc.php'; ?>
 <?php
 echo $form->showFormTop('');
-echo $form->showInputText('new_registrar', 'Registrar Name (100)', '', $new_registrar, '100', '', '1', '', '');
-echo $form->showInputText('new_url', 'Registrar\'s URL (100)', '', $new_url, '100', '', '', '', '');
+echo $form->showInputText('new_registrar', 'Registrar Name (100)', '', $unsanitize->text($new_registrar), '100', '', '1', '', '');
+echo $form->showInputText('new_url', 'Registrar\'s URL (100)', '', $unsanitize->text($new_url), '100', '', '', '', '');
 
 $result = $pdo->query("
     SELECT id, `name`
@@ -213,12 +236,12 @@ if ($result) {
 
 }
 
-echo $form->showInputTextarea('new_notes', 'Notes', '', $new_notes, '', '', '');
+echo $form->showInputTextarea('new_notes', 'Notes', '', $unsanitize->text($new_notes), '', '', '');
 echo $form->showInputHidden('rid', $rid);
 echo $form->showSubmitButton('Save', '', '');
 echo $form->showFormBottom('');
 ?>
-<BR><a href="registrar.php?rid=<?php echo urlencode($rid); ?>&del=1">DELETE THIS REGISTRAR</a>
+<BR><a href="registrar.php?rid=<?php echo $rid; ?>&del=1">DELETE THIS REGISTRAR</a>
 <?php require_once DIR_INC . '/layout/footer.inc.php'; ?>
 </body>
 </html>

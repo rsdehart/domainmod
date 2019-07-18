@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Date.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -47,10 +47,6 @@ class Date
     {
         $start_date = substr($daterange, 0, 10);
         $end_date = substr($daterange, -10, 10);
-
-        if (!$this->checkDateFormat($start_date)) $start_date = '1900-01-01';
-        if (!$this->checkDateFormat($end_date)) $end_date = '3000-12-31';
-
         return array($start_date, $end_date);
     }
 

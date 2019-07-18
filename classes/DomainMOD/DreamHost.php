@@ -3,7 +3,7 @@
  * /classes/DomainMOD/DreamHost.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,15 +23,15 @@ namespace DomainMOD;
 
 class DreamHost
 {
+    public $deeb;
     public $format;
     public $log;
-    public $system;
 
     public function __construct()
     {
+        $this->deeb = Database::getInstance();
         $this->format = new Format();
-        $this->log = new Log('dreamhost.class');
-        $this->system = new System();
+        $this->log = new Log('class.dreamhost');
     }
 
     public function getApiUrl($api_key, $command)
@@ -47,7 +47,9 @@ class DreamHost
     public function apiCall($full_url)
     {
         $handle = curl_init($full_url);
-        curl_setopt( $handle, CURLOPT_RETURNTRANSFER, true );
+        curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYPEER, false);
         $result = curl_exec($handle);
         curl_close($handle);
         return $result;
@@ -55,7 +57,7 @@ class DreamHost
 
     public function getDomainList($api_key, $account_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $domain_list = array();
         $domain_count = 0;
@@ -124,12 +126,12 @@ class DreamHost
 
     public function getFullInfo($account_id, $domain)
     {
-        $pdo = $this->system->db();
-
         $expiration_date = '';
         $dns_servers = array();
         $privacy_status = '';
         $autorenewal_status = '';
+
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT id, expiry_date, ns1, ns2, ns3, ns4, ns5, ns6, ns7, ns8, ns9, ns10, autorenew, privacy
@@ -140,8 +142,8 @@ class DreamHost
         $stmt->bindValue('account_id', $account_id, \PDO::PARAM_INT);
         $stmt->bindValue('domain', $domain, \PDO::PARAM_STR);
         $stmt->execute();
-
         $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         if (!$result) {
 

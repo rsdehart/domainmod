@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Domain.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,14 +23,14 @@ namespace DomainMOD;
 
 class Domain
 {
+    public $deeb;
     public $log;
-    public $system;
     public $time;
 
     public function __construct()
     {
-        $this->log = new Log('domain.class');
-        $this->system = new System();
+        $this->deeb = Database::getInstance();
+        $this->log = new Log('class.domain');
         $this->time = new Time();
     }
 
@@ -41,7 +41,7 @@ class Domain
         $invalid_count = 0;
         $result_message = '';
 
-        while (list($key, $domain) = each($lines)) {
+        foreach ($lines as $key => $domain) {
 
             if (!$this->checkFormat($domain)) {
 
@@ -63,18 +63,24 @@ class Domain
 
     public function checkFormat($input_domain)
     {
-/*
-        if (preg_match('/^[A-Z0-9.-]+\.[A-Z0-9-]{2,50}$/i', $input_domain, $output_domain)) {
+        if (
+            // positive
+            preg_match("/^(.+?)\.(.+?)$/", $input_domain) && // has at least one period in the middle
 
-            return $output_domain;
+            // negative
+            $input_domain[0] != '.' && // is the first character a period
+            $input_domain[strlen($input_domain) - 1] != '.' && // is the last character a period
+            !preg_match("/\\s/", $input_domain) && // are there any spaces
+            !preg_match("/\*/", $input_domain) // are there any asterisks
+        ) {
+
+            return true;
 
         } else {
 
             return false;
 
         }
-*/
-        return $input_domain;
     }
 
     public function renew($domain, $renewal_years, $notes)
@@ -86,7 +92,7 @@ class Domain
 
     public function getDomain($domain_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT domain
@@ -100,7 +106,7 @@ class Domain
 
             $log_message = "Unable to retrieve domain";
             $log_extra = array('Domain ID' => $domain_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -112,7 +118,7 @@ class Domain
 
     public function getExpiry($domain)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT expiry_date
@@ -126,7 +132,7 @@ class Domain
 
             $log_message = "Unable to retrieve domain's expiry date";
             $log_extra = array('Domain' => $domain);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -144,7 +150,7 @@ class Domain
 
     public function writeNewExpiry($domain, $new_expiry, $notes)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         if ($notes != '') {
 

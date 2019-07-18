@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Assets.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,20 +23,19 @@ namespace DomainMOD;
 
 class Assets
 {
-    public $system;
+    public $deeb;
     public $error;
     public $log;
 
     public function __construct()
     {
-        $this->system = new System();
-        $this->log = new Log('assets.class');
-        $this->error = new Error();
+        $this->deeb = Database::getInstance();
+        $this->log = new Log('class.assets');
     }
 
     public function getRegistrar($registrar_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT `name`
@@ -50,7 +49,7 @@ class Assets
 
             $log_message = 'Unable to retrieve Registrar name';
             $log_extra = array('Registrar ID' => $registrar_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -62,7 +61,7 @@ class Assets
 
     public function getRegistrarByAcc($account_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT r.name
@@ -78,7 +77,7 @@ class Assets
 
             $log_message = 'Unable to retrieve Registrar name';
             $log_extra = array('Account ID' => $account_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -90,7 +89,7 @@ class Assets
 
     public function getSslType($type_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT type
@@ -104,7 +103,7 @@ class Assets
 
             $log_message = 'Unable to retrieve SSL Type';
             $log_extra = array('SSL Type ID' => $type_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -116,7 +115,7 @@ class Assets
 
     public function getDnsName($dns_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT `name`
@@ -130,7 +129,7 @@ class Assets
 
             $log_message = 'Unable to retrieve DNS Profile name';
             $log_extra = array('DNS Profile ID' => $dns_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -142,7 +141,7 @@ class Assets
 
     public function getIpName($ip_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT `name`
@@ -156,7 +155,7 @@ class Assets
 
             $log_message = 'Unable to retrieve IP Address name';
             $log_extra = array('IP Address ID' => $ip_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -168,7 +167,7 @@ class Assets
 
     public function getIpAndName($ip_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT `name`, ip
@@ -177,12 +176,13 @@ class Assets
         $stmt->bindValue('ip_id', $ip_id, \PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         if (!$result) {
 
             $log_message = 'Unable to retrieve IP Address name & IP Address';
             $log_extra = array('IP Address ID' => $ip_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return array($log_message, '');
 
         } else {
@@ -194,7 +194,7 @@ class Assets
 
     public function getSslProvider($ssl_provider_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT `name`
@@ -208,7 +208,7 @@ class Assets
 
             $log_message = 'Unable to retrieve SSL Provider name';
             $log_extra = array('SSL Provider ID' => $ssl_provider_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -220,7 +220,7 @@ class Assets
 
     public function getOwner($owner_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT `name`
@@ -234,7 +234,7 @@ class Assets
 
             $log_message = 'Unable to retrieve Owner name';
             $log_extra = array('Owner ID' => $owner_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -246,7 +246,7 @@ class Assets
 
     public function getHost($host_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT `name`
@@ -260,7 +260,7 @@ class Assets
 
             $log_message = 'Unable to retrieve Hosting name';
             $log_extra = array('Hosting ID' => $host_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -272,7 +272,7 @@ class Assets
 
     public function getCat($cat_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT `name`
@@ -286,7 +286,7 @@ class Assets
 
             $log_message = 'Unable to retrieve Category';
             $log_extra = array('Category ID' => $cat_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -298,7 +298,7 @@ class Assets
 
     public function getUsername($account_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT username
@@ -313,7 +313,7 @@ class Assets
 
             $log_message = 'Unable to retrieve Registrar Account Username';
             $log_extra = array('Account ID' => $account_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {

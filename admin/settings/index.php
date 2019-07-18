@@ -3,7 +3,7 @@
  * /admin/settings/index.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,41 +22,42 @@
 <?php
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
-require_once DIR_ROOT . '/vendor/autoload.php';
-
-$system = new DomainMOD\System();
-$error = new DomainMOD\Error();
-$form = new DomainMOD\Form();
-$layout = new DomainMOD\Layout();
-$time = new DomainMOD\Time();
-
-require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/software.inc.php';
+require_once DIR_ROOT . '/vendor/autoload.php';
+
+$deeb = DomainMOD\Database::getInstance();
+$system = new DomainMOD\System();
+$layout = new DomainMOD\Layout();
+$time = new DomainMOD\Time();
+$form = new DomainMOD\Form();
+$sanitize = new DomainMOD\Sanitize();
+$unsanitize = new DomainMOD\Unsanitize();
+
+require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/admin-settings.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
-$pdo = $system->db();
 $system->authCheck();
 $system->checkAdminUser($_SESSION['s_is_admin']);
+$pdo = $deeb->cnxx;
 
-$new_full_url = $_POST['new_full_url'];
-$new_email_address = $_POST['new_email_address'];
-$new_expiration_days = $_POST['new_expiration_days'];
-$new_large_mode = $_POST['new_large_mode'];
-$new_use_smtp = $_POST['new_use_smtp'];
-$new_smtp_server = $_POST['new_smtp_server'];
+$new_full_url = $sanitize->text($_POST['new_full_url']);
+$new_email_address = $sanitize->text($_POST['new_email_address']);
+$new_expiration_days = (int) $_POST['new_expiration_days'];
+$new_currency_converter = $sanitize->text($_POST['new_currency_converter']);
+$new_large_mode = (int) $_POST['new_large_mode'];
+$new_use_smtp = (int) $_POST['new_use_smtp'];
+$new_smtp_server = $sanitize->text($_POST['new_smtp_server']);
 $new_smtp_protocol = $_POST['new_smtp_protocol'];
-$new_smtp_port = $_POST['new_smtp_port'];
-$new_smtp_email_address = $_POST['new_smtp_email_address'];
-$new_smtp_username = $_POST['new_smtp_username'];
-$new_smtp_password = $_POST['new_smtp_password'];
-$new_debug_mode = $_POST['new_debug_mode'];
-$new_local_php_log = $_POST['new_local_php_log'];
+$new_smtp_port = (int) $_POST['new_smtp_port'];
+$new_smtp_email_address = $sanitize->text($_POST['new_smtp_email_address']);
+$new_smtp_username = $sanitize->text($_POST['new_smtp_username']);
+$new_smtp_password = $sanitize->text($_POST['new_smtp_password']);
+$new_debug_mode = (int) $_POST['new_debug_mode'];
+$new_local_php_log = (int) $_POST['new_local_php_log'];
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_email_address != "" && $new_full_url != "" && $new_expiration_days != "") {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_email_address != "" && $new_full_url != "" && $new_expiration_days !== 0) {
 
     $stmt = $pdo->prepare("
         UPDATE settings
@@ -71,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_email_address != "" && $new_ful
             smtp_username = :new_smtp_username,
             smtp_password = :new_smtp_password,
             expiration_days = :new_expiration_days,
+            currency_converter = :new_currency_converter,
             debug_mode = :new_debug_mode,
             local_php_log = :new_local_php_log,
             update_time = :timestamp");
@@ -80,11 +82,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_email_address != "" && $new_ful
     $stmt->bindValue('new_use_smtp', $new_use_smtp, PDO::PARAM_INT);
     $stmt->bindValue('new_smtp_server', $new_smtp_server, PDO::PARAM_STR);
     $stmt->bindValue('new_smtp_protocol', $new_smtp_protocol, PDO::PARAM_STR);
-    $stmt->bindValue('new_smtp_port', $new_smtp_port, PDO::PARAM_STR);
+    $stmt->bindValue('new_smtp_port', $new_smtp_port, PDO::PARAM_INT);
     $stmt->bindValue('new_smtp_email_address', $new_smtp_email_address, PDO::PARAM_STR);
     $stmt->bindValue('new_smtp_username', $new_smtp_username, PDO::PARAM_STR);
     $stmt->bindValue('new_smtp_password', $new_smtp_password, PDO::PARAM_STR);
     $stmt->bindValue('new_expiration_days', $new_expiration_days, PDO::PARAM_INT);
+    $stmt->bindValue('new_currency_converter', $new_currency_converter, PDO::PARAM_STR);
     $stmt->bindValue('new_debug_mode', $new_debug_mode, PDO::PARAM_INT);
     $stmt->bindValue('new_local_php_log', $new_local_php_log, PDO::PARAM_INT);
     $timestamp = $time->stamp();
@@ -95,6 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_email_address != "" && $new_ful
     $_SESSION['s_system_email_address'] = $new_email_address;
     $_SESSION['s_system_large_mode'] = $new_large_mode;
     $_SESSION['s_system_expiration_days'] = $new_expiration_days;
+    $_SESSION['s_system_currency_converter'] = $new_currency_converter;
     $_SESSION['s_system_local_php_log'] = $new_local_php_log;
 
     $_SESSION['s_message_success'] .= "The System Settings were updated<BR>";
@@ -112,10 +116,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_email_address != "" && $new_ful
 
     } else {
 
-        $result = $pdo->query("
+        $stmt = $pdo->prepare("
             SELECT full_url, email_address, large_mode, use_smtp, smtp_server, smtp_protocol, smtp_port,
-                smtp_email_address, smtp_username, smtp_password, expiration_days, debug_mode, local_php_log
-            FROM settings")->fetch();
+                smtp_email_address, smtp_username, smtp_password, expiration_days, currency_converter, debug_mode,
+                local_php_log
+            FROM settings");
+        $stmt->execute();
+        $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         if ($result) {
 
@@ -130,6 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_email_address != "" && $new_ful
             $new_smtp_username = $result->smtp_username;
             $new_smtp_password = $result->smtp_password;
             $new_expiration_days = $result->expiration_days;
+            $new_currency_converter = $result->currency_converter;
             $new_debug_mode = $result->debug_mode;
             $new_local_php_log = $result->local_php_log;
 
@@ -141,17 +150,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $new_email_address != "" && $new_ful
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
 <?php require_once DIR_INC . '/layout/header.inc.php'; ?>
 <?php
 echo $form->showFormTop('');
-echo $form->showInputText('new_full_url', 'Full ' . SOFTWARE_TITLE . ' URL (100)', 'Enter the full URL of your ' . SOFTWARE_TITLE . ' installation, excluding the trailing slash (Example: http://example.com/domainmod)', $new_full_url, '100', '', '1', '', '');
-echo $form->showInputText('new_email_address', 'System Email Address (100)', 'This should be a valid email address that is monitored by the ' . SOFTWARE_TITLE . ' System Administrator. It will be used in various system locations, such as the REPLY-TO address for emails sent by ' . SOFTWARE_TITLE . '.', $new_email_address, '100', '', '1', '', '');
+echo $form->showInputText('new_full_url', 'Full ' . SOFTWARE_TITLE . ' URL (100)', 'Enter the full URL of your ' . SOFTWARE_TITLE . ' installation, excluding the trailing slash (Example: http://example.com/domainmod)', $unsanitize->text($new_full_url), '100', '', '1', '', '');
+echo $form->showInputText('new_email_address', 'System Email Address (100)', 'This should be a valid email address that is monitored by the ' . SOFTWARE_TITLE . ' System Administrator. It will be used in various system locations, such as the REPLY-TO address for emails sent by ' . SOFTWARE_TITLE . '.', $unsanitize->text($new_email_address), '100', '', '1', '', '');
 echo $form->showInputText('new_expiration_days', 'Expiration Days to Display', 'This is the number of days in the future to display on the Dashboard and in expiration emails.', $new_expiration_days, '3', '', '1', '', '');
-echo $form->showRadioTop('Large Mode', 'If you have a very large database and your main Domain page is loading slowly, enabling Large Mode will fix the issue, at the cost of losing some of the advanced filtering and mobile functionality. You should only need to enable this if your database contains upwards of 10,000 domains.', '');
+echo $form->showDropdownTop('new_currency_converter', 'Currency Converter', 'Although it doesn\'t happen often, sometimes currency converters can experience downtime. If this happens, and your conversions aren\'t working properly, try a different source.', '', '');
+echo $form->showDropdownOption('fcca', 'Free Currency Converter API', $new_currency_converter);
+echo $form->showDropdownOption('era', 'Exchange Rates API', $new_currency_converter);
+echo $form->showDropdownBottom('');
+echo $form->showRadioTop('Large Mode', 'If you have a very large database and your main Domains page is loading slowly, enabling Large Mode should fix the issue, at the cost of losing some of the advanced filtering and mobile functionality.', '');
 echo $form->showRadioOption('new_large_mode', '1', 'Enabled', $new_large_mode, '<BR>', '&nbsp;&nbsp;&nbsp;&nbsp;');
 echo $form->showRadioOption('new_large_mode', '0', 'Disabled', $new_large_mode, '', '');
 echo $form->showRadioBottom('');
@@ -176,15 +189,15 @@ echo $form->showRadioBottom('');
         echo $form->showRadioOption('new_use_smtp', '1', 'Yes', $new_use_smtp, '<BR>', '&nbsp;&nbsp;&nbsp;&nbsp;');
         echo $form->showRadioOption('new_use_smtp', '0', 'No', $new_use_smtp, '', '');
         echo $form->showRadioBottom('');
-        echo $form->showInputText('new_smtp_server', 'SMTP Server (255)', 'If you plan on using an external SMTP server, enter the server name here.', $new_smtp_server, '100', '', '', '', '');
+        echo $form->showInputText('new_smtp_server', 'SMTP Server (255)', 'If you plan on using an external SMTP server, enter the server name here.', $unsanitize->text($new_smtp_server), '100', '', '', '', '');
         echo $form->showRadioTop('SMTP Server Protocol', '', '');
         echo $form->showRadioOption('new_smtp_protocol', 'tls', 'TLS', $new_smtp_protocol, '<BR>', '&nbsp;&nbsp;&nbsp;&nbsp;');
         echo $form->showRadioOption('new_smtp_protocol', 'ssl', 'SSL', $new_smtp_protocol, '', '');
         echo $form->showRadioBottom('');
         echo $form->showInputText('new_smtp_port', 'SMTP Server Port (5)', '', $new_smtp_port, '5', '', '', '', '');
-        echo $form->showInputText('new_smtp_email_address', 'SMTP Email Address (100)', '', $new_smtp_email_address, '100', '', '', '', '');
-        echo $form->showInputText('new_smtp_username', 'SMTP Username (100)', 'This is usually the same as the SMTP Email Address.', $new_smtp_username, '100', '', '', '', '');
-        echo $form->showInputText('new_smtp_password', 'SMTP Password (255)', '', $new_smtp_password, '255', '', '', '', ''); ?>
+        echo $form->showInputText('new_smtp_email_address', 'SMTP Email Address (100)', '', $unsanitize->text($new_smtp_email_address), '100', '', '', '', '');
+        echo $form->showInputText('new_smtp_username', 'SMTP Username (100)', 'This is usually the same as the SMTP Email Address.', $unsanitize->text($new_smtp_username), '100', '', '', '', '');
+        echo $form->showInputText('new_smtp_password', 'SMTP Password (255)', '', $unsanitize->text($new_smtp_password), '255', '', '', '', ''); ?>
     </div>
 </div><BR><?php
 

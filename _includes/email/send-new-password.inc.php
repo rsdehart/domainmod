@@ -3,7 +3,7 @@
  * /_includes/email/send-new-password.inc.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,22 +22,13 @@
 <?php
 $email = new DomainMOD\Email();
 
-list($full_url, $from_address, $null_variable, $use_smtp) = $email->getSettings();
+list($full_url, $null_variable1, $null_variable2, $null_variable3) = $email->getSettings();
 
 $to_address = $email_address;
 $from_name = SOFTWARE_TITLE;
 
-$subject = "Your " . SOFTWARE_TITLE . " Password has been Reset";
-$headline = "Your " . SOFTWARE_TITLE . " Password has been Reset";
-
-$headers = '';
-$headers .= 'MIME-Version: 1.0' . "\r\n";
-$headers .= 'Content-type: text/html; charset=' . EMAIL_ENCODING_TYPE . "\r\n";
-$headers .= 'From: "' . SOFTWARE_TITLE . '" <' . $from_address . ">\r\n";
-$headers .= 'Return-Path: ' . $from_address . "\r\n";
-$headers .= 'Reply-to: ' . $from_address . "\r\n";
-$version = phpversion();
-$headers .= 'X-Mailer: PHP/' . $version . "\r\n";
+$subject = 'Your ' . SOFTWARE_TITLE . ' Password has been Reset';
+$headline = 'Your ' . SOFTWARE_TITLE . ' Password has been Reset';
 
 $message_html .= "
 <html>
@@ -123,13 +114,4 @@ $message_text .= "You've received this notification because someone requested a 
 $message_text .= "\n";
 $message_text .= "If you did not request this yourself, it sounds like somebody might be trying to gain access to your account. This might be a good time to reset your password again just to be safe. " . $full_url . "/reset.php";
 
-if ($use_smtp != '1') {
-
-    mail($to_address, $subject, $message_html, $headers, '-f' . $from_address);
-
-} else {
-
-    $smtp = new DomainMOD\Smtp();
-    $smtp->send($from_address, $to_address, $first_name . ' ' . $last_name, $subject, $message_html, $message_text);
-
-}
+$email->send('Password Reset', $to_address, $subject, $message_html, $message_text);

@@ -3,7 +3,7 @@
  * /classes/DomainMOD/System.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,52 +23,159 @@ namespace DomainMOD;
 
 class System
 {
+    public $deeb;
     public $log;
+    public $layout;
 
     public function __construct()
     {
-        $this->log = new Log('system.class');
+        $this->deeb = Database::getInstance();
+        $this->log = new Log('class.system');
+        $this->layout = new Layout();
     }
 
-    public function db()
+    public function getRequirements()
     {
-        $pdo = new \PDO("mysql:host=" . DB_HOSTNAME . ";dbname=" . DB_NAME . ";charset=utf8", DB_USERNAME, DB_PASSWORD);
-        $pdo->exec("SET NAMES utf8");
-        $pdo->setAttribute(\PDO::ATTR_EMULATE_PREPARES, false);
-        $pdo->setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, \PDO::FETCH_OBJ);
-        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-        return $pdo;
+        list($req_text, $req_html_short, $req_html_long) = $this->getReqServerSoft();
+        list($req_text, $req_html_short, $req_html_long) = $this->getReqExtensions($req_text, $req_html_short, $req_html_long);
+        list($req_text, $req_html_short, $req_html_long) = $this->getReqSettings($req_text, $req_html_short, $req_html_long);
+        return array($req_text, $req_html_short, $req_html_long);
     }
 
-    public function installCheck()
+    public function getReqServerSoft()
     {
-        $full_install_path = DIR_ROOT . '/install/';
+        $req_text = '';
+        $req_html_short = '';
+        $req_html_long = '';
 
-        $result = $this->checkForSettingsTable();
+        // SERVER SOFTWARE
+        $req_text .= 'Server Software: ';
+        $req_html_short .= '<STRONG>Server Software:</STRONG> ';
+        $req_html_long .= '<STRONG>Server Software</STRONG><BR>';
 
-        if (!$result && is_dir($full_install_path)) {
+        // PHP
+        $software = 'PHP v5.3.2+';
+        $min_php_version = '5.3.2';
+        $installed_php_version = phpversion();
 
-            $installation_mode = 1;
-            $result_message = 'DomainMOD is not yet installed<BR>';
+        if ($installed_php_version >= $min_php_version) {
+
+            $req_text .= $software . ': Pass, ';
+            $req_html_short .= $software . ': ' . $this->layout->highlightText('green', 'Pass') . ', ';
+            $req_html_long .= $software . ': ' . $this->layout->highlightText('green', 'Pass') . '<BR>';
 
         } else {
 
-            $installation_mode = 0;
-            $result_message = '';
+            $req_text .= $software . ': Fail, ';
+            $req_html_short .= $software . ': ' . $this->layout->highlightText('red', 'Fail') . ', ';
+            $req_html_long .= $software . ': ' . $this->layout->highlightText('red', 'Fail') . '<BR>';
 
         }
 
-        return array($installation_mode, $result_message);
+        // MySQL
+        $software = 'MySQL';
+        if (extension_loaded('pdo_mysql')) {
+
+            $req_text .= $software . ': Pass';
+            $req_html_short .= $software . ': ' . $this->layout->highlightText('green', 'Pass') . ', ';
+            $req_html_long .= $software . ': ' . $this->layout->highlightText('green', 'Pass') . '<BR>';
+
+        } else {
+
+            $req_text .= $software . ': Fail';
+            $req_html_short .= $software . ': ' . $this->layout->highlightText('red', 'Fail') . ', ';
+            $req_html_long .= $software . ': ' . $this->layout->highlightText('red', 'Fail') . '<BR>';
+
+        }
+
+        $req_html_short = substr($req_html_short, 0, -2);
+
+        return array($req_text, $req_html_short, $req_html_long);
+    }
+
+    public function getReqExtensions($req_text, $req_html_short, $req_html_long)
+    {
+        // PHP Extensions
+        $req_text .= ' / PHP Extensions: ';
+        $req_html_short .= '<BR><STRONG>PHP Extensions:</STRONG> ';
+        $req_html_long .= '<BR><STRONG>PHP Extensions</STRONG><BR>';
+
+        $extensions = array('pdo_mysql' => 'PDO (MySQL)',
+                            'curl' => 'cURL',
+                            'openssl' => 'OpenSSL');
+
+        foreach ($extensions as $key => $value) {
+
+            if (extension_loaded($key)) {
+
+                $req_text .= $value . ': Enabled, ';
+                $req_html_short .= $value . ': ' . $this->layout->highlightText('green', 'Enabled') . ', ';
+                $req_html_long .= $value . ': ' . $this->layout->highlightText('green', 'Enabled') . '<BR>';
+
+            } else {
+
+                $req_text .= $value . ': Disabled, ';
+                $req_html_short .= $value . ': ' . $this->layout->highlightText('red', 'Disabled') . ', ';
+                $req_html_long .= $value . ': ' . $this->layout->highlightText('red', 'Disabled') . '<BR>';
+
+            }
+
+        }
+
+        $req_text = substr($req_text, 0, -2);
+        $req_html_short = substr($req_html_short, 0, -2);
+
+        return array($req_text, $req_html_short, $req_html_long);
+    }
+
+    public function getReqSettings($req_text, $req_html_short, $req_html_long)
+    {
+        // PHP SETTINGS
+        $req_text .= ' / PHP Settings: ';
+        $req_html_short .= '<BR><STRONG>PHP Settings:</STRONG> ';
+        $req_html_long .= '<BR><STRONG>PHP Settings</STRONG><BR>';
+
+        $settings = array('allow_url_fopen');
+
+        foreach ($settings as $value) {
+
+            if (ini_get($value)) {
+
+                $req_text .= $value . ': Enabled, ';
+                $req_html_short .= $value . ': ' . $this->layout->highlightText('green', 'Enabled') . ', ';
+                $req_html_long .= $value . ': ' . $this->layout->highlightText('green', 'Enabled') . '<BR>';
+
+            } else {
+
+                $req_text .= $value . ': Disabled, ';
+                $req_html_short .= $value . ': ' . $this->layout->highlightText('red', 'Disabled') . ', ';
+                $req_html_long .= $value . ': ' . $this->layout->highlightText('red', 'Disabled') . '<BR>';
+
+            }
+
+        }
+
+        $req_text = substr($req_text, 0, -2);
+        $req_html_short = substr($req_html_short, 0, -2);
+
+        return array($req_text, $req_html_short, $req_html_long);
+    }
+
+    public function installMode()
+    {
+        $result = $this->checkForSettingsTable();
+        $install_mode = !$result ? 1 : 0;
+        return $install_mode;
     }
 
     public function checkForSettingsTable()
     {
-        return $this->db()->query("SHOW TABLES LIKE 'settings'")->fetchColumn();
+        return $this->deeb->cnxx->query("SHOW TABLES LIKE 'settings'")->fetchColumn();
     }
 
     public function checkVersion($current_version)
     {
-        $pdo = $this->db();
+        $pdo = $this->deeb->cnxx;
         $live_version = $this->getLiveVersion();
 
         if ($current_version < $live_version && $live_version != '') {
@@ -90,24 +197,12 @@ class System
     public function getLiveVersion()
     {
         $version_file = 'https://raw.githubusercontent.com/domainmod/domainmod/master/version.txt';
-        $context = stream_context_create(array('https' => array('header' => 'Connection: close\r\n')));
-        $version_fgc = file_get_contents($version_file, false, $context);
-        if ($version_fgc) {
-            $live_version = $version_fgc;
-        } else {
-            $handle = curl_init();
-            curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($handle, CURLOPT_URL, $version_file);
-            $result = curl_exec($handle);
-            curl_close($handle);
-            $live_version = $result;
-        }
-        return $live_version;
+        return $this->getFileContents('Get Live Version', 'error', $version_file);
     }
 
     public function getDbVersion()
     {
-        return $this->db()->query("
+        return $this->deeb->cnxx->query("
             SELECT db_version
             FROM settings")->fetchColumn();
     }
@@ -116,11 +211,6 @@ class System
     {
         return "A new version of DomainMOD is available for download. <a target=\"_blank\"
                 href=\"http://domainmod.org/upgrade/\">Click here for upgrade instructions</a>.<BR>";
-    }
-
-    public function pageTitle($page_title)
-    {
-        return SOFTWARE_TITLE . ' :: ' . $page_title;
     }
 
     public function checkExistingAssets()
@@ -143,7 +233,7 @@ class System
 
     public function checkForRows($sql)
     {
-        $result = $this->db()->query($sql)->fetchColumn();
+        $result = $this->deeb->cnxx->query($sql)->fetchColumn();
         if (!$result) {
             return '0';
         } else {
@@ -161,12 +251,20 @@ class System
         }
     }
 
+    public function installCheck()
+    {
+        if ($this->installMode() === 0) {
+            $_SESSION['s_message_danger'] .= SOFTWARE_TITLE . " is already installed<BR><BR>You should delete the /install/ folder<BR>";
+            header('Location: ' . WEB_ROOT . '/');
+            exit;
+        }
+    }
+
     public function readOnlyCheck($redirect_url)
     {
         if ($_SESSION['s_read_only'] == '1') {
             $_SESSION['s_message_danger'] .= "You are not authorized to perform that action<BR>";
-            $temp_redirect_url = urlencode($redirect_url);
-            header('Location: ' . $temp_redirect_url);
+            header('Location: ' . $redirect_url);
             exit;
         }
     }
@@ -189,7 +287,7 @@ class System
 
     public function getDebugMode()
     {
-        $pdo = $this->db();
+        $pdo = $this->deeb->cnxx;
         $result = $this->checkForSettingsTable();
         if (!$result) return '0';
         $stmt = $pdo->query("SHOW COLUMNS FROM `settings` LIKE 'debug_mode'");
@@ -227,6 +325,20 @@ class System
         return ob_get_clean();
     }
 
+    public function showMessageInfo($result_message)
+    {
+        ob_start(); ?>
+        <BR>
+        <div class="alert alert-info alert-dismissible">
+        <?php /* ?>
+            <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+        <?php */ ?>
+            <h4><i class="icon fa fa-info"></i> Info</h4>
+            <?php echo $result_message; ?>
+        </div><?php
+        return ob_get_clean();
+    }
+
     public function showMaintenanceTable($result_message)
     {
         ob_start(); ?>
@@ -251,7 +363,7 @@ class System
 
     public function getCreationType($creation_type_id)
     {
-        $pdo = $this->db();
+        $pdo = $this->deeb->cnxx;
         $stmt = $pdo->prepare("
             SELECT `name`
             FROM creation_types
@@ -264,7 +376,7 @@ class System
 
             $log_message = 'Unable to retrieve creation type';
             $log_extra = array('Creation Type ID' => $creation_type_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -276,7 +388,7 @@ class System
 
     public function getCreationTypeId($creation_type)
     {
-        $pdo = $this->db();
+        $pdo = $this->deeb->cnxx;
         $stmt = $pdo->prepare("
             SELECT id
             FROM creation_types
@@ -289,7 +401,7 @@ class System
 
             $log_message = 'Unable to retrieve creation type ID';
             $log_extra = array('Creation Type' => $creation_type, 'Result' => $result);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -297,6 +409,53 @@ class System
             return $result;
 
         }
+    }
+
+    public function getFileContents($file_title, $log_severity, $filename)
+    {
+
+        if (ini_get('allow_url_fopen') && extension_loaded('openssl')) {
+
+            $file_contents = $this->getFileContFopen($filename);
+
+        } elseif (extension_loaded('curl')) {
+
+            $file_contents = $this->getFileContCurl($filename);
+
+        } else {
+
+            $log_message = 'Unable to get file contents';
+            list($requirements, $null, $null) = $this->getRequirements();
+            $log_extra = array('File Title' => $file_title, 'Requirements' => $requirements);
+            $this->log->{$log_severity}($log_message, $log_extra);
+            $file_contents = '';
+
+        }
+
+        return $file_contents;
+    }
+
+    public function getFileContFopen($filename)
+    {
+        $context = stream_context_create(array('https' => array('header' => 'Connection: close\r\n')));
+        return file_get_contents($filename, false, $context);
+    }
+
+    public function getFileContCurl($filename)
+    {
+        $handle = curl_init();
+        curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($handle, CURLOPT_URL, $filename);
+        $result = curl_exec($handle);
+        curl_close($handle);
+        return $result;
+    }
+
+    public function getIpRemotely()
+    {
+        return $this->getFileContents('External IP API Call (ipify)', 'warning', 'https://api.ipify.org');
     }
 
 } //@formatter:on

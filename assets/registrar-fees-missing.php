@@ -3,7 +3,7 @@
  * /assets/registrar-fees-missing.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,39 +22,38 @@
 <?php
 require_once __DIR__ . '/../_includes/start-session.inc.php';
 require_once __DIR__ . '/../_includes/init.inc.php';
-
-require_once DIR_ROOT . '/vendor/autoload.php';
-
-$system = new DomainMOD\System();
-$error = new DomainMOD\Error();
-$time = new DomainMOD\Time();
-$form = new DomainMOD\Form();
-
-require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/software.inc.php';
+require_once DIR_ROOT . '/vendor/autoload.php';
+
+$deeb = DomainMOD\Database::getInstance();
+$system = new DomainMOD\System();
+$layout = new DomainMOD\Layout();
+$time = new DomainMOD\Time();
+
+require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/assets-registrar-fees-missing.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
 $system->authCheck();
+$pdo = $deeb->cnxx;
 ?>
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
 <?php require_once DIR_INC . '/layout/header.inc.php'; ?>
 <?php
-$sql = "SELECT r.id AS registrar_id, r.name AS registrar_name
-        FROM registrars r, domains d
-        WHERE r.id = d.registrar_id
-          AND d.fee_id = '0'
-        GROUP BY r.name
-        ORDER BY r.name ASC";
-$result = mysqli_query($dbcon, $sql);
+$result = $pdo->query("
+    SELECT r.id AS registrar_id, r.name AS registrar_name
+    FROM registrars r, domains d
+    WHERE r.id = d.registrar_id
+      AND d.fee_id = '0'
+    GROUP BY r.name
+    ORDER BY r.name ASC")->fetchAll();
 ?>
 The following Registrars/TLDs are missing Domain fees. In order to ensure your domain reporting is accurate please
 update these fees as soon as possible.<BR>
@@ -69,7 +68,7 @@ update these fees as soon as possible.<BR>
     </thead>
     <tbody><?php
 
-    while ($row = mysqli_fetch_object($result)) { ?>
+    foreach ($result as $row) { ?>
 
         <tr>
         <td></td>
@@ -78,17 +77,17 @@ update these fees as soon as possible.<BR>
         </td>
         <td><?php
 
-            $sql_missing_tlds = "SELECT tld
-                                 FROM domains
-                                 WHERE registrar_id = '" . $row->registrar_id . "'
-                                   AND fee_id = '0'
-                                 GROUP BY tld
-                                 ORDER BY tld ASC";
-            $result_missing_tlds = mysqli_query($dbcon, $sql_missing_tlds);
+            $result_missing_tlds = $pdo->query("
+                SELECT tld
+                FROM domains
+                WHERE registrar_id = '" . $row->registrar_id . "'
+                  AND fee_id = '0'
+                GROUP BY tld
+                ORDER BY tld ASC")->fetchAll();
 
             $full_tld_list = "";
 
-            while ($row_missing_tlds = mysqli_fetch_object($result_missing_tlds)) {
+            foreach ($result_missing_tlds as $row_missing_tlds) {
 
                 $full_tld_list .= '<a href=\'' . $web_root . '/assets/add/registrar-fee.php?rid=' . $row->registrar_id . '&tld=' . $row_missing_tlds->tld . '\'>' . $row_missing_tlds->tld . "</a>, ";
 

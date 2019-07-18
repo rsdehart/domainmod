@@ -3,7 +3,7 @@
  * /classes/DomainMOD/ResellerClub.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -29,7 +29,7 @@ class ResellerClub
     public function __construct()
     {
         $this->format = new Format();
-        $this->log = new Log('resellerclub.class');
+        $this->log = new Log('class.resellerclub');
     }
 
     public function getApiUrl($reseller_id, $api_key, $command, $domain)
@@ -47,7 +47,9 @@ class ResellerClub
     public function apiCall($full_url)
     {
         $handle = curl_init($full_url);
-        curl_setopt( $handle, CURLOPT_RETURNTRANSFER, true );
+        curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYPEER, false);
         $result = curl_exec($handle);
         curl_close($handle);
         return $result;

@@ -3,7 +3,7 @@
  * /assets/add/ip-address.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,34 +22,35 @@
 <?php
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
-require_once DIR_ROOT . '/vendor/autoload.php';
-
-$system = new DomainMOD\System();
-$error = new DomainMOD\Error();
-$time = new DomainMOD\Time();
-$form = new DomainMOD\Form();
-
-require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/software.inc.php';
+require_once DIR_ROOT . '/vendor/autoload.php';
+
+$deeb = DomainMOD\Database::getInstance();
+$system = new DomainMOD\System();
+$layout = new DomainMOD\Layout();
+$time = new DomainMOD\Time();
+$form = new DomainMOD\Form();
+$sanitize = new DomainMOD\Sanitize();
+$unsanitize = new DomainMOD\Unsanitize();
+
+require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/assets-add-ip-address.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
 $system->authCheck();
 $system->readOnlyCheck($_SERVER['HTTP_REFERER']);
 
-$new_name = $_POST['new_name'];
-$new_ip = $_POST['new_ip'];
-$new_rdns = $_POST['new_rdns'];
-$new_notes = $_POST['new_notes'];
+$new_name = $sanitize->text($_POST['new_name']);
+$new_ip = $sanitize->text($_POST['new_ip']);
+$new_rdns = $sanitize->text($_POST['new_rdns']);
+$new_notes = $sanitize->text($_POST['new_notes']);
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     if ($new_name != '' && $new_ip != '') {
 
-        $pdo = $system->db();
+        $pdo = $deeb->cnxx;
 
         $stmt = $pdo->prepare("
             INSERT INTO ip_addresses
@@ -86,17 +87,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
 <?php require_once DIR_INC . '/layout/header.inc.php'; ?>
 <?php
 echo $form->showFormTop('');
-echo $form->showInputText('new_name', 'IP Address Name (100)', '', $new_name, '100', '', '1', '', '');
-echo $form->showInputText('new_ip', 'IP Address (100)', '', $new_ip, '100', '', '1', '', '');
-echo $form->showInputText('new_rdns', 'rDNS (100)', '', $new_rdns, '100', '', '', '', '');
-echo $form->showInputTextarea('new_notes', 'Notes', '', $new_notes, '', '', '');
+echo $form->showInputText('new_name', 'IP Address Name (100)', '', $unsanitize->text($new_name), '100', '', '1', '', '');
+echo $form->showInputText('new_ip', 'IP Address (100)', '', $unsanitize->text($new_ip), '100', '', '1', '', '');
+echo $form->showInputText('new_rdns', 'rDNS (100)', '', $unsanitize->text($new_rdns), '100', '', '', '', '');
+echo $form->showInputTextarea('new_notes', 'Notes', '', $unsanitize->text($new_notes), '', '', '');
 echo $form->showSubmitButton('Add IP Address', '', '');
 echo $form->showFormBottom('');
 ?>

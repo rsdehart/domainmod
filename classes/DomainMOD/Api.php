@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Api.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -24,21 +24,20 @@ namespace DomainMOD;
 class Api
 {
     public $assets;
+    public $deeb;
     public $error;
     public $log;
-    public $system;
 
     public function __construct()
     {
         $this->assets = new Assets();
-        $this->error = new Error();
-        $this->log = new Log('api.class');
-        $this->system = new System();
+        $this->deeb = Database::getInstance();
+        $this->log = new Log('class.api');
     }
 
     public function getKey($account_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT api_key
@@ -53,7 +52,7 @@ class Api
             $log_message = 'Unable to retrieve API Key';
             $log_extra = array('Account ID' => $account_id, 'Registrar' => $this->assets->getRegistrarByAcc($account_id),
                                'Account Username' => $this->assets->getUsername($account_id));
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -65,7 +64,7 @@ class Api
 
     public function getKeySecret($account_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT api_key, api_secret
@@ -74,13 +73,14 @@ class Api
         $stmt->bindValue('account_id', $account_id, \PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         if (!$result) {
 
             $log_message = 'Unable to retrieve API Key & API Secret';
             $log_extra = array('Account ID' => $account_id, 'Registrar' => $this->assets->getRegistrarByAcc($account_id),
                                'Account Username' => $this->assets->getUsername($account_id));
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return array($log_message, $log_message);
 
         } else {
@@ -92,7 +92,7 @@ class Api
 
     public function getUserKey($account_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT username, api_key
@@ -101,13 +101,14 @@ class Api
         $stmt->bindValue('account_id', $account_id, \PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         if (!$result) {
 
             $log_message = 'Unable to retrieve Username & API Key';
             $log_extra = array('Account ID' => $account_id, 'Registrar' => $this->assets->getRegistrarByAcc($account_id),
                                'Account Username' => $this->assets->getUsername($account_id));
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return array($log_message, $log_message);
 
         } else {
@@ -119,7 +120,7 @@ class Api
 
     public function getUserAppSecret($account_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT username, api_app_name, api_secret
@@ -128,13 +129,14 @@ class Api
         $stmt->bindValue('account_id', $account_id, \PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         if (!$result) {
 
             $log_message = 'Unable to retrieve Username, API App Name, & API Secret';
             $log_extra = array('Account ID' => $account_id, 'Registrar' => $this->assets->getRegistrarByAcc($account_id),
                                'Account Username' => $this->assets->getUsername($account_id));
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return array($log_message, $log_message, $log_message);
 
         } else {
@@ -146,7 +148,7 @@ class Api
 
     public function getUserKeyIp($account_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT ra.username, ra.api_key, ip.ip
@@ -156,13 +158,14 @@ class Api
         $stmt->bindValue('account_id', $account_id, \PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         if (!$result) {
 
             $log_message = 'Unable to retrieve Username, API Key, & IP Address';
             $log_extra = array('Account ID' => $account_id, 'Registrar' => $this->assets->getRegistrarByAcc($account_id),
                                'Account Username' => $this->assets->getUsername($account_id));
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return array($log_message, $log_message, $log_message);
 
         } else {
@@ -174,7 +177,7 @@ class Api
 
     public function getReselleridKey($account_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT reseller_id, api_key
@@ -183,13 +186,14 @@ class Api
         $stmt->bindValue('account_id', $account_id, \PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         if (!$result) {
 
             $log_message = 'Unable to retrieve Reseller ID & API Key';
             $log_extra = array('Account ID' => $account_id, 'Registrar' => $this->assets->getRegistrarByAcc($account_id),
                                'Account Username' => $this->assets->getUsername($account_id));
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return array($log_message, $log_message);
 
         } else {
@@ -201,7 +205,7 @@ class Api
 
     public function getUserPass($account_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT username, `password`
@@ -210,13 +214,14 @@ class Api
         $stmt->bindValue('account_id', $account_id, \PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         if (!$result) {
 
             $log_message = 'Unable to retrieve Username & Password';
             $log_extra = array('Account ID' => $account_id, 'Registrar' => $this->assets->getRegistrarByAcc($account_id),
                                'Account Username' => $this->assets->getUsername($account_id));
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return array($log_message, $log_message);
 
         } else {
@@ -228,7 +233,7 @@ class Api
 
     public function getApiRegistrarName($api_registrar_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT `name`
@@ -242,7 +247,7 @@ class Api
 
             $log_message = 'Unable to retrieve API Registrar Name';
             $log_extra = array('API Registrar ID' => $api_registrar_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {

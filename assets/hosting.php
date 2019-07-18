@@ -3,7 +3,7 @@
  * /assets/hosting.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,32 +22,30 @@
 <?php //@formatter:off
 require_once __DIR__ . '/../_includes/start-session.inc.php';
 require_once __DIR__ . '/../_includes/init.inc.php';
-
+require_once DIR_INC . '/config.inc.php';
+require_once DIR_INC . '/software.inc.php';
 require_once DIR_ROOT . '/vendor/autoload.php';
 
+$deeb = DomainMOD\Database::getInstance();
 $system = new DomainMOD\System();
-$error = new DomainMOD\Error();
 $layout = new DomainMOD\Layout();
 $time = new DomainMOD\Time();
 
 require_once DIR_INC . '/head.inc.php';
-require_once DIR_INC . '/config.inc.php';
-require_once DIR_INC . '/software.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/assets-hosting.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
 $system->authCheck();
+$pdo = $deeb->cnxx;
 
-$export_data = $_GET['export_data'];
+$export_data = (int) $_GET['export_data'];
 
-$sql = "SELECT id, `name`, url, notes, creation_type_id, created_by, insert_time, update_time
-        FROM hosting
-        ORDER BY `name` ASC";
+$result = $pdo->query("
+    SELECT id, `name`, url, notes, creation_type_id, created_by, insert_time, update_time
+    FROM hosting
+    ORDER BY `name` ASC")->fetchAll();
 
-if ($export_data == '1') {
-
-    $result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
+if ($export_data === 1) {
 
     $export = new DomainMOD\Export();
     $export_file = $export->openFile('web_hosting_provider_list', strtotime($time->stamp()));
@@ -71,19 +69,15 @@ if ($export_data == '1') {
     );
     $export->writeRow($export_file, $row_contents);
 
-    if (mysqli_num_rows($result) > 0) {
+    if ($result) {
 
-        while ($row = mysqli_fetch_object($result)) {
+        foreach ($result as $row) {
 
-            $sql_total_count = "SELECT count(*) AS total_count
-                                FROM domains
-                                WHERE hosting_id = '" . $row->id . "'
-                                  AND active NOT IN ('0', '10')";
-            $result_total_count = mysqli_query($dbcon, $sql_total_count);
-
-            while ($row_total_count = mysqli_fetch_object($result_total_count)) {
-                $total_domains = $row_total_count->total_count;
-            }
+            $total_domains = $pdo->query("
+                SELECT count(*)
+                FROM domains
+                WHERE hosting_id = '" . $row->id . "'
+                  AND active NOT IN ('0', '10')")->fetchColumn();
 
             if ($row->id == $_SESSION['s_default_host']) {
 
@@ -139,7 +133,7 @@ if ($export_data == '1') {
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
@@ -148,9 +142,7 @@ Below is a list of all the Web Hosting Providers that are stored in <?php echo S
 <a href="add/host.php"><?php echo $layout->showButton('button', 'Add Hosting Provider'); ?></a>
 <a href="hosting.php?export_data=1"><?php echo $layout->showButton('button', 'Export'); ?></a><BR><BR><?php
 
-$result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
-
-if (mysqli_num_rows($result) > 0) { ?>
+if ($result) { ?>
 
     <table id="<?php echo $slug; ?>" class="<?php echo $datatable_class; ?>">
         <thead>
@@ -163,17 +155,13 @@ if (mysqli_num_rows($result) > 0) { ?>
         </thead>
         <tbody><?php
 
-        while ($row = mysqli_fetch_object($result)) {
+        foreach ($result as $row) {
 
-            $sql_domain_count = "SELECT count(*) AS total_count
-                                 FROM domains
-                                 WHERE active NOT IN ('0', '10')
-                                   AND hosting_id = '" . $row->id . "'";
-            $result_domain_count = mysqli_query($dbcon, $sql_domain_count);
-
-            while ($row_domain_count = mysqli_fetch_object($result_domain_count)) {
-                $total_domains = $row_domain_count->total_count;
-            }
+            $total_domains = $pdo->query("
+                SELECT count(*)
+                FROM domains
+                WHERE active NOT IN ('0', '10')
+                  AND hosting_id = '" . $row->id . "'")->fetchColumn();
 
             if ($total_domains >= 1 || $_SESSION['s_display_inactive_assets'] == '1') { ?>
 

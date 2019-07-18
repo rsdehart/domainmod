@@ -3,7 +3,7 @@
  * /classes/DomainMOD/Reporting.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -24,9 +24,9 @@ namespace DomainMOD;
 class Reporting
 {
 
-    public function getRangeString($all, $column, $new_start_date, $new_end_date)
+    public function getRangeString($column, $new_start_date, $new_end_date)
     {
-        if ($all == '1') {
+        if ($new_start_date == '' && $new_end_date == '') {
 
             $range_string = '';
 

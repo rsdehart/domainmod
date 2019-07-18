@@ -3,7 +3,7 @@
  * /classes/DomainMOD/User.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,16 +23,16 @@ namespace DomainMOD;
 
 class User
 {
-    public $system;
+    public $deeb;
 
     public function __construct()
     {
-        $this->system = new System();
+        $this->deeb = Database::getInstance();
     }
 
     public function getAdminId()
     {
-        return $this->system->db()->query("
+        return $this->deeb->cnxx->query("
             SELECT id
             FROM users
             WHERE username = 'admin'")->fetchColumn();
@@ -40,7 +40,7 @@ class User
 
     public function getFullName($user_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT first_name, last_name
@@ -49,6 +49,7 @@ class User
         $stmt->bindValue('user_id', $user_id, \PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         return $result->first_name . ' ' . $result->last_name;
     }

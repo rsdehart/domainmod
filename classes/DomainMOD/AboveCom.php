@@ -3,7 +3,7 @@
  * /classes/DomainMOD/AboveCom.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -23,15 +23,15 @@ namespace DomainMOD;
 
 class AboveCom
 {
+    public $deeb;
     public $format;
     public $log;
-    public $system;
 
     public function __construct()
     {
+        $this->deeb = Database::getInstance();
         $this->format = new Format();
-        $this->log = new Log('abovecom.class');
-        $this->system = new System();
+        $this->log = new Log('class.abovecom');
     }
 
     public function getApiUrl($api_key, $command)
@@ -47,7 +47,9 @@ class AboveCom
     public function apiCall($full_url)
     {
         $handle = curl_init($full_url);
-        curl_setopt( $handle, CURLOPT_RETURNTRANSFER, true );
+        curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($handle, CURLOPT_SSL_VERIFYPEER, false);
         $result = curl_exec($handle);
         curl_close($handle);
         return $result;
@@ -65,7 +67,7 @@ class AboveCom
         // confirm that the api call was successful
         if ($array_results[0]['@attributes']['code'] == '100') {
 
-            $pdo = $this->system->db();
+            $pdo = $this->deeb->cnxx;
             $stmt = $pdo->prepare("
                 INSERT INTO domain_queue_temp
                 (account_id, domain, expiry_date, ns1, ns2, ns3, ns4, ns5, ns6, ns7, ns8, ns9, ns10, autorenew, privacy)
@@ -124,7 +126,7 @@ class AboveCom
 
     public function getFullInfo($account_id, $domain)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $expiration_date = '';
         $dns_servers = array();
@@ -140,8 +142,8 @@ class AboveCom
         $stmt->bindValue('account_id', $account_id, \PDO::PARAM_INT);
         $stmt->bindValue('domain', $domain, \PDO::PARAM_STR);
         $stmt->execute();
-
         $result = $stmt->fetch();
+        $stmt->closeCursor();
 
         if (!$result) {
 

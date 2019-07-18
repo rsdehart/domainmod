@@ -3,7 +3,7 @@
  * /assets/edit/account-owner.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,32 +22,33 @@
 <?php
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
-require_once DIR_ROOT . '/vendor/autoload.php';
-
-$system = new DomainMOD\System();
-$error = new DomainMOD\Error();
-$time = new DomainMOD\Time();
-$form = new DomainMOD\Form();
-
-require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/software.inc.php';
+require_once DIR_ROOT . '/vendor/autoload.php';
+
+$deeb = DomainMOD\Database::getInstance();
+$system = new DomainMOD\System();
+$layout = new DomainMOD\Layout();
+$time = new DomainMOD\Time();
+$form = new DomainMOD\Form();
+$sanitize = new DomainMOD\Sanitize();
+$unsanitize = new DomainMOD\Unsanitize();
+
+require_once DIR_INC . '/head.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/assets-edit-owner.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
-$pdo = $system->db();
 $system->authCheck();
+$pdo = $deeb->cnxx;
 
-$del = $_GET['del'];
-$really_del = $_GET['really_del'];
+$del = (int) $_GET['del'];
+$really_del = (int) $_GET['really_del'];
 
-$oid = $_GET['oid'];
+$oid = (int) $_GET['oid'];
 
-$new_owner = $_POST['new_owner'];
-$new_notes = $_POST['new_notes'];
-$new_oid = $_POST['new_oid'];
+$new_owner = $sanitize->text($_POST['new_owner']);
+$new_notes = $sanitize->text($_POST['new_notes']);
+$new_oid = (int) $_POST['new_oid'];
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
@@ -90,13 +91,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $stmt->bindValue('oid', $oid, PDO::PARAM_INT);
     $stmt->execute();
     $result = $stmt->fetch();
+    $stmt->closeCursor();
 
     $new_owner = $result->name;
     $new_notes = $result->notes;
 
 }
 
-if ($del == "1") {
+if ($del === 1) {
 
     $stmt = $pdo->prepare("
         SELECT owner_id
@@ -106,6 +108,7 @@ if ($del == "1") {
     $stmt->bindValue('oid', $oid, PDO::PARAM_INT);
     $stmt->execute();
     $result = $stmt->fetch();
+    $stmt->closeCursor();
 
     if ($result) {
 
@@ -121,6 +124,7 @@ if ($del == "1") {
     $stmt->bindValue('oid', $oid, PDO::PARAM_INT);
     $stmt->execute();
     $result = $stmt->fetch();
+    $stmt->closeCursor();
 
     if ($result) {
 
@@ -136,6 +140,7 @@ if ($del == "1") {
     $stmt->bindValue('oid', $oid, PDO::PARAM_INT);
     $stmt->execute();
     $result = $stmt->fetch();
+    $stmt->closeCursor();
 
     if ($result) {
 
@@ -151,6 +156,7 @@ if ($del == "1") {
     $stmt->bindValue('oid', $oid, PDO::PARAM_INT);
     $stmt->execute();
     $result = $stmt->fetch();
+    $stmt->closeCursor();
 
     if ($result) {
 
@@ -189,7 +195,7 @@ if ($del == "1") {
 
 }
 
-if ($really_del == "1") {
+if ($really_del === 1) {
 
     $stmt = $pdo->prepare("
         DELETE FROM owners
@@ -207,20 +213,20 @@ if ($really_del == "1") {
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
 <?php require_once DIR_INC . '/layout/header.inc.php'; ?>
 <?php
 echo $form->showFormTop('');
-echo $form->showInputText('new_owner', 'Owner Name (100)', '', $new_owner, '100', '', '1', '', '');
-echo $form->showInputTextarea('new_notes', 'Notes', '', $new_notes, '', '', '');
+echo $form->showInputText('new_owner', 'Owner Name (100)', '', $unsanitize->text($new_owner), '100', '', '1', '', '');
+echo $form->showInputTextarea('new_notes', 'Notes', '', $unsanitize->text($new_notes), '', '', '');
 echo $form->showInputHidden('new_oid', $oid);
 echo $form->showSubmitButton('Save', '', '');
 echo $form->showFormBottom('');
 ?>
-<BR><a href="account-owner.php?oid=<?php echo urlencode($oid); ?>&del=1">DELETE THIS OWNER</a>
+<BR><a href="account-owner.php?oid=<?php echo $oid; ?>&del=1">DELETE THIS OWNER</a>
 <?php require_once DIR_INC . '/layout/footer.inc.php'; ?>
 </body>
 </html>

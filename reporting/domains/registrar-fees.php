@@ -3,7 +3,7 @@
  * /reporting/domains/registrar-fees.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,62 +22,60 @@
 <?php
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
+require_once DIR_INC . '/config.inc.php';
+require_once DIR_INC . '/software.inc.php';
 require_once DIR_ROOT . '/vendor/autoload.php';
 
+$deeb = DomainMOD\Database::getInstance();
 $system = new DomainMOD\System();
-$error = new DomainMOD\Error();
 $layout = new DomainMOD\Layout;
 $time = new DomainMOD\Time();
 $reporting = new DomainMOD\Reporting();
 $currency = new DomainMOD\Currency();
 
 require_once DIR_INC . '/head.inc.php';
-require_once DIR_INC . '/config.inc.php';
-require_once DIR_INC . '/software.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/reporting-domain-fees.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
 $system->authCheck();
+$pdo = $deeb->cnxx;
 
-$export_data = $_GET['export_data'];
+$export_data = (int) $_GET['export_data'];
 $all = $_GET['all'];
 
 if ($all == "1") {
 
-    $sql = "SELECT r.id, r.name AS registrar, f.id AS fee_id, f.tld, f.initial_fee, f.renewal_fee, f.transfer_fee,
-                f.privacy_fee, f.misc_fee, f.insert_time, f.update_time, c.currency, c.symbol, c.symbol_order,
-                c.symbol_space, count(*) AS number_of_fees_total
-            FROM registrars AS r, fees AS f, currencies AS c
-            WHERE r.id = f.registrar_id
-              AND f.currency_id = c.id
-            GROUP BY r.name, f.tld
-            ORDER BY r.name, f.tld";
+    $result = $pdo->query("
+        SELECT r.id, r.name AS registrar, f.id AS fee_id, f.tld, f.initial_fee, f.renewal_fee, f.transfer_fee,
+            f.privacy_fee, f.misc_fee, f.insert_time, f.update_time, c.currency, c.symbol, c.symbol_order,
+            c.symbol_space, count(*) AS number_of_fees_total
+        FROM registrars AS r, fees AS f, currencies AS c
+        WHERE r.id = f.registrar_id
+          AND f.currency_id = c.id
+        GROUP BY r.name, f.tld
+        ORDER BY r.name, f.tld")->fetchAll();
 
 } else {
 
-    $sql = "SELECT r.id, r.name AS registrar, d.tld, f.id AS fee_id, f.initial_fee, f.renewal_fee, f.transfer_fee,
-                f.privacy_fee, f.misc_fee, f.insert_time, f.update_time, c.currency, c.symbol, c.symbol_order,
-                c.symbol_space, count(*) AS number_of_fees_total
-            FROM registrars AS r, domains AS d, fees AS f, currencies AS c
-            WHERE r.id = d.registrar_id
-              AND d.fee_id = f.id
-              AND f.currency_id = c.id
-              AND d.active NOT IN ('0', '10')
-            GROUP BY r.name, d.tld
-            ORDER BY r.name, d.tld";
+    $result = $pdo->query("
+        SELECT r.id, r.name AS registrar, d.tld, f.id AS fee_id, f.initial_fee, f.renewal_fee, f.transfer_fee,
+            f.privacy_fee, f.misc_fee, f.insert_time, f.update_time, c.currency, c.symbol, c.symbol_order,
+            c.symbol_space, count(*) AS number_of_fees_total
+        FROM registrars AS r, domains AS d, fees AS f, currencies AS c
+        WHERE r.id = d.registrar_id
+          AND d.fee_id = f.id
+          AND f.currency_id = c.id
+          AND d.active NOT IN ('0', '10')
+        GROUP BY r.name, d.tld
+        ORDER BY r.name, d.tld")->fetchAll();
 
 }
 
-$result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
-$total_rows = mysqli_num_rows($result);
+$total_rows = count($result);
 
 if ($total_rows > 0) {
 
-    if ($export_data == "1") {
-
-        $result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
+    if ($export_data === 1) {
 
         $export = new DomainMOD\Export();
 
@@ -129,9 +127,9 @@ if ($total_rows > 0) {
         $new_tld = "";
         $last_tld = "";
 
-        if (mysqli_num_rows($result) > 0) {
+        if ($result) {
 
-            while ($row = mysqli_fetch_object($result)) {
+            foreach ($result as $row) {
 
                 $new_registrar = $row->registrar;
                 $new_tld = $row->tld;
@@ -163,18 +161,12 @@ if ($total_rows > 0) {
                 $row_contents[$count++] = $row->misc_fee;
                 $row_contents[$count++] = $row->currency;
 
-                $sql_domain_count = "SELECT count(*) AS total_domain_count
-                                     FROM domains
-                                     WHERE registrar_id = '" . $row->id . "'
-                                       AND fee_id = '" . $row->fee_id . "'
-                                       AND active NOT IN ('0', '10')";
-                $result_domain_count = mysqli_query($dbcon, $sql_domain_count);
-
-                while ($row_domain_count = mysqli_fetch_object($result_domain_count)) {
-
-                    $row_contents[$count++] = $row_domain_count->total_domain_count;
-
-                }
+                $row_contents[$count++] = $pdo->query("
+                    SELECT count(*)
+                    FROM domains
+                    WHERE registrar_id = '" . $row->id . "'
+                      AND fee_id = '" . $row->fee_id . "'
+                      AND active NOT IN ('0', '10')")->fetchColumn();
 
                 $row_contents[$count++] = $time->toUserTimezone($row->insert_time);
                 $row_contents[$count++] = $time->toUserTimezone($row->update_time);
@@ -194,12 +186,11 @@ if ($total_rows > 0) {
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
 <?php require_once DIR_INC . '/layout/header.inc.php'; ?>
-<BR>
 <a href="registrar-fees.php?all=1"><?php echo $layout->showButton('button', 'View All'); ?></a>&nbsp;&nbsp;or&nbsp;<a href="registrar-fees.php?all=0"><?php echo $layout->showButton('button', 'Active Only'); ?></a>
 <?php if ($total_rows > 0) { //@formatter:off ?>
           <BR><BR><a href="registrar-fees.php?export_data=1&all=<?php echo urlencode($all); ?>"><?php echo $layout->showButton('button', 'Export'); ?></a>
@@ -230,12 +221,12 @@ if ($total_rows > 0) {
         $new_tld = "";
         $last_tld = "";
 
-        while ($row = mysqli_fetch_object($result)) {
+        foreach ($result as $row) {
 
             $new_registrar = $row->registrar;
             $new_tld = $row->tld;
 
-            if ($row->update_time == "0000-00-00 00:00:00") {
+            if ($row->update_time == '1970-01-01 00:00:00') {
                 $row->update_time = $row->insert_time;
             }
             $last_updated = $time->toUserTimezone(date('Y-m-d', strtotime($row->update_time)));
@@ -281,31 +272,27 @@ if ($total_rows > 0) {
                     <td><?php echo $row->currency; ?></td>
                     <td>
                         <?php
-                        $sql_domain_count = "SELECT count(*) AS total_domain_count
-                                             FROM domains
-                                             WHERE registrar_id = '" . $row->id . "'
-                                               AND fee_id = '" . $row->fee_id . "'
-                                               AND active NOT IN ('0', '10')";
-                        $result_domain_count = mysqli_query($dbcon, $sql_domain_count);
-                        while ($row_domain_count = mysqli_fetch_object($result_domain_count)) {
+                        $result_domain_count = $pdo->query("
+                            SELECT count(*)
+                            FROM domains
+                            WHERE registrar_id = '" . $row->id . "'
+                              AND fee_id = '" . $row->fee_id . "'
+                              AND active NOT IN ('0', '10')")->fetchColumn();
 
-                            if ($row_domain_count->total_domain_count == 0) {
+                        if (!$result_domain_count) {
 
-                                echo "-";
+                            echo "-";
 
-                            } else {
+                        } else {
 
-                                echo "<a href=\"../../domains/index.php?rid=" . $row->id . "&tld="
-                                    . $row->tld . "\">" . $row_domain_count->total_domain_count . "</a>";
-
-                            }
+                            echo "<a href=\"../../domains/index.php?rid=" . $row->id . "&tld="
+                                . $row->tld . "\">" . $result_domain_count . "</a>";
 
                         } ?>
                     </td>
                     <td><?php echo $last_updated; ?></td>
-                </tr>
+                </tr><?php
 
-                <?php
                 $last_registrar = $row->registrar;
                 $last_tld = $row->tld;
 
@@ -350,24 +337,21 @@ if ($total_rows > 0) {
                     <td><?php echo $row->currency; ?></td>
                     <td>
                         <?php
-                        $sql_domain_count = "SELECT count(*) AS total_domain_count
-                                             FROM domains
-                                             WHERE registrar_id = '" . $row->id . "'
-                                               AND fee_id = '" . $row->fee_id . "'
-                                               AND active NOT IN ('0', '10')";
-                        $result_domain_count = mysqli_query($dbcon, $sql_domain_count);
-                        while ($row_domain_count = mysqli_fetch_object($result_domain_count)) {
+                        $result_domain_count = $pdo->query("
+                            SELECT count(*)
+                            FROM domains
+                            WHERE registrar_id = '" . $row->id . "'
+                              AND fee_id = '" . $row->fee_id . "'
+                              AND active NOT IN ('0', '10')")->fetchColumn();
 
-                            if ($row_domain_count->total_domain_count == 0) {
+                        if (!$result_domain_count) {
 
-                                echo "-";
+                            echo "-";
 
-                            } else {
+                        } else {
 
-                                echo "<a href=\"../../domains/index.php?rid=" . $row->id . "&tld="
-                                    . $row->tld . "\">" . $row_domain_count->total_domain_count . "</a>";
-
-                            }
+                            echo "<a href=\"../../domains/index.php?rid=" . $row->id . "&tld="
+                                . $row->tld . "\">" . $result_domain_count . "</a>";
 
                         } ?>
                     </td>

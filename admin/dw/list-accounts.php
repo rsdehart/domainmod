@@ -3,7 +3,7 @@
  * /admin/dw/list-accounts.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,26 +22,25 @@
 <?php
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
+require_once DIR_INC . '/config.inc.php';
+require_once DIR_INC . '/software.inc.php';
 require_once DIR_ROOT . '/vendor/autoload.php';
 
+$deeb = DomainMOD\Database::getInstance();
 $system = new DomainMOD\System();
-$error = new DomainMOD\Error();
 $layout = new DomainMOD\Layout();
 $time = new DomainMOD\Time();
 
 require_once DIR_INC . '/head.inc.php';
-require_once DIR_INC . '/config.inc.php';
-require_once DIR_INC . '/software.inc.php';
 require_once DIR_INC . '/debug.inc.php';
 require_once DIR_INC . '/settings/dw-list-accounts.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
 $system->authCheck();
 $system->checkAdminUser($_SESSION['s_is_admin']);
+$pdo = $deeb->cnxx;
 
 $domain = $_GET['domain'];
-$export_data = $_GET['export_data'];
+$export_data = (int) $_GET['export_data'];
 
 if ($_SESSION['s_dw_view_all'] == "1") {
 
@@ -57,25 +56,29 @@ if ($_SESSION['s_dw_view_all'] == "1") {
 
 if ($domain != "") { //@formatter:off
 
-    $sql = "SELECT a.*, s.id AS dw_server_id, s.name AS dw_server_name, s.host AS dw_server_host
-            FROM dw_accounts AS a, dw_servers AS s
-            WHERE a.server_id = s.id
-              AND a.domain = '" . mysqli_real_escape_string($dbcon, $domain) . "'" .
-              $where_clause .
-            $order_clause;
+    $stmt = $pdo->prepare("
+        SELECT a.*, s.id AS dw_server_id, s.name AS dw_server_name, s.host AS dw_server_host
+        FROM dw_accounts AS a, dw_servers AS s
+        WHERE a.server_id = s.id
+          AND a.domain = :domain" . 
+          $where_clause .
+        $order_clause);
+    $stmt->bindValue('domain', $domain, PDO::PARAM_STR);
+    $stmt->execute();
+    $result = $stmt->fetchAll();
+
 } else {
 
-    $sql = "SELECT a.*, s.id AS dw_server_id, s.name AS dw_server_name, s.host AS dw_server_host
-            FROM dw_accounts AS a, dw_servers AS s
-            WHERE a.server_id = s.id " .
-              $where_clause .
-            $order_clause;
+    $result = $pdo->query("
+        SELECT a.*, s.id AS dw_server_id, s.name AS dw_server_name, s.host AS dw_server_host
+        FROM dw_accounts AS a, dw_servers AS s
+        WHERE a.server_id = s.id" .
+          $where_clause .
+        $order_clause)->fetchAll();
 
 } //@formatter:on
 
-if ($export_data == "1") {
-
-    $result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
+if ($export_data === 1) {
 
     $export = new DomainMOD\Export();
     $export_file = $export->openFile('dw_account_list', strtotime($time->stamp()));
@@ -86,7 +89,7 @@ if ($export_data == "1") {
     $export->writeBlankRow($export_file);
 
     $row_contents = array(
-        'Number of Accounts:', number_format(mysqli_num_rows($result))
+        'Number of Accounts:', number_format(count($result))
     );
     $export->writeRow($export_file, $row_contents);
 
@@ -137,40 +140,40 @@ if ($export_data == "1") {
     );
     $export->writeRow($export_file, $row_contents);
 
-    if (mysqli_num_rows($result) > 0) {
+    if ($result) {
 
-        while ($row_dw_account_temp = mysqli_fetch_object($result)) {
+        foreach ($result as $row) {
 
             $row_contents = array(
-                $row_dw_account_temp->dw_server_name,
-                $row_dw_account_temp->dw_server_host,
-                $row_dw_account_temp->domain,
-                $row_dw_account_temp->ip,
-                $row_dw_account_temp->owner,
-                $row_dw_account_temp->user,
-                $row_dw_account_temp->email,
-                $row_dw_account_temp->plan,
-                $row_dw_account_temp->theme,
-                $row_dw_account_temp->shell,
-                $row_dw_account_temp->partition,
-                $row_dw_account_temp->disklimit,
-                $row_dw_account_temp->diskused,
-                $row_dw_account_temp->maxaddons,
-                $row_dw_account_temp->maxftp,
-                $row_dw_account_temp->maxlst,
-                $row_dw_account_temp->maxparked,
-                $row_dw_account_temp->maxpop,
-                $row_dw_account_temp->maxsql,
-                $row_dw_account_temp->maxsub,
-                $row_dw_account_temp->startdate,
-                $row_dw_account_temp->unix_startdate,
-                $row_dw_account_temp->suspended,
-                $row_dw_account_temp->suspendreason,
-                $row_dw_account_temp->suspendtime,
-                $row_dw_account_temp->max_email_per_hour,
-                $row_dw_account_temp->max_defer_fail_percentage,
-                $row_dw_account_temp->min_defer_fail_to_trigger_protection,
-                $time->toUserTimezone($row_dw_account_temp->insert_time)
+                $row->dw_server_name,
+                $row->dw_server_host,
+                $row->domain,
+                $row->ip,
+                $row->owner,
+                $row->user,
+                $row->email,
+                $row->plan,
+                $row->theme,
+                $row->shell,
+                $row->partition,
+                $row->disklimit,
+                $row->diskused,
+                $row->maxaddons,
+                $row->maxftp,
+                $row->maxlst,
+                $row->maxparked,
+                $row->maxpop,
+                $row->maxsql,
+                $row->maxsub,
+                $row->startdate,
+                $row->unix_startdate,
+                $row->suspended,
+                $row->suspendreason,
+                $row->suspendtime,
+                $row->max_email_per_hour,
+                $row->max_defer_fail_percentage,
+                $row->min_defer_fail_to_trigger_protection,
+                $time->toUserTimezone($row->insert_time)
             );
             $export->writeRow($export_file, $row_contents);
 
@@ -185,14 +188,13 @@ if ($export_data == "1") {
 <?php require_once DIR_INC . '/doctype.inc.php'; ?>
 <html>
 <head>
-    <title><?php echo $system->pageTitle($page_title); ?></title>
+    <title><?php echo $layout->pageTitle($page_title); ?></title>
     <?php require_once DIR_INC . '/layout/head-tags.inc.php'; ?>
 </head>
 <body class="hold-transition skin-red sidebar-mini">
 <?php require_once DIR_INC . '/layout/header.inc.php';
-$result = mysqli_query($dbcon, $sql) or $error->outputSqlError($dbcon, '1', 'ERROR');
 
-if (mysqli_num_rows($result) == 0) {
+if (!$result) {
 
     echo "Your search returned 0 results.";
 
@@ -215,7 +217,7 @@ if (mysqli_num_rows($result) == 0) {
         </thead>
         <tbody><?php
 
-            while ($row = mysqli_fetch_object($result)) { ?>
+            foreach ($result as $row) { ?>
 
                 <tr>
                     <td></td>

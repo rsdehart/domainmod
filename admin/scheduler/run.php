@@ -3,7 +3,7 @@
  * /admin/scheduler/run.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -22,31 +22,29 @@
 <?php
 require_once __DIR__ . '/../../_includes/start-session.inc.php';
 require_once __DIR__ . '/../../_includes/init.inc.php';
-
+require_once DIR_INC . '/config.inc.php';
+require_once DIR_INC . '/software.inc.php';
 require_once DIR_ROOT . '/vendor/autoload.php';
 
-$system = new DomainMOD\System();
-$error = new DomainMOD\Error();
-$maint = new DomainMOD\Maintenance();
 $conversion = new DomainMOD\Conversion();
+$deeb = DomainMOD\Database::getInstance();
+$log = new DomainMOD\Log('/admin/scheduler/run.php');
+$maint = new DomainMOD\Maintenance();
 $schedule = new DomainMOD\Scheduler();
+$system = new DomainMOD\System();
 $time = new DomainMOD\Time();
-$log = new DomainMOD\Log('admin.scheduler.run');
 
 require_once DIR_INC . '/head.inc.php';
-require_once DIR_INC . '/config.inc.php';
 require_once DIR_INC . '/config-demo.inc.php';
-require_once DIR_INC . '/software.inc.php';
 require_once DIR_INC . '/debug.inc.php';
-require_once DIR_INC . '/database.inc.php';
 
-$pdo = $system->db();
 $system->authCheck();
 $system->checkAdminUser($_SESSION['s_is_admin']);
+$pdo = $deeb->cnxx;
 
 $id = $_GET['id'];
 
-if (DEMO_INSTALLATION != '1') {
+if (DEMO_INSTALLATION === false) {
 
     $stmt = $pdo->prepare("
         SELECT `name`, slug, expression, active
@@ -54,14 +52,14 @@ if (DEMO_INSTALLATION != '1') {
         WHERE id = :id");
     $stmt->bindValue('id', $id, PDO::PARAM_INT);
     $stmt->execute();
-
     $result = $stmt->fetch();
+    $stmt->closeCursor();
 
     if (!$result) {
 
         $log_message = 'Unable to get scheduled task';
         $log_extra = array('Task ID' => $id);
-        $log->info($log_message, $log_extra);
+        $log->critical($log_message, $log_extra);
 
     } else {
 
@@ -72,7 +70,7 @@ if (DEMO_INSTALLATION != '1') {
 
         } else {
 
-            $next_run = '1978-01-23 00:00:00';
+            $next_run = '1970-01-01 00:00:00';
 
         }
 
@@ -81,7 +79,7 @@ if (DEMO_INSTALLATION != '1') {
         if ($result->slug == 'cleanup') {
 
             $log_message = '[START] Cleanup Tasks';
-            $log->info($log_message, $log_extra);
+            $log->notice($log_message, $log_extra);
 
             $schedule->isRunning($id);
             $maint->performCleanup();
@@ -89,28 +87,28 @@ if (DEMO_INSTALLATION != '1') {
             $schedule->isFinished($id);
 
             $log_message = '[END] Cleanup Tasks';
-            $log->info($log_message);
+            $log->notice($log_message);
 
             $_SESSION['s_message_success'] .= "System Cleanup Performed";
 
         } elseif ($result->slug == 'expiration-email') {
 
             $log_message = '[START] Send Expiration Email';
-            $log->info($log_message, $log_extra);
+            $log->notice($log_message, $log_extra);
 
             $email = new DomainMOD\Email();
             $schedule->isRunning($id);
-            $email->sendExpirations('0');
+            $email->sendExpirations();
             $schedule->updateTime($id, $time->stamp(), $next_run);
             $schedule->isFinished($id);
 
             $log_message = '[END] Send Expiration Email';
-            $log->info($log_message);
+            $log->notice($log_message);
 
         } elseif ($result->slug == 'update-conversion-rates') {
 
             $log_message = '[START] Update Conversion Rates';
-            $log->info($log_message, $log_extra);
+            $log->notice($log_message, $log_extra);
 
             $schedule->isRunning($id);
 
@@ -121,7 +119,7 @@ if (DEMO_INSTALLATION != '1') {
             if (!$result_conversion) {
 
                 $log_message = 'No user currencies found';
-                $log->error($log_message);
+                $log->critical($log_message);
 
             } else {
 
@@ -137,14 +135,14 @@ if (DEMO_INSTALLATION != '1') {
             $schedule->isFinished($id);
 
             $log_message = '[END] Update Conversion Rates';
-            $log->info($log_message);
+            $log->notice($log_message);
 
             $_SESSION['s_message_success'] .= "Conversion Rates Updated";
 
         } elseif ($result->slug == 'check-new-version') {
 
             $log_message = '[START] New Version Check';
-            $log->info($log_message, $log_extra);
+            $log->notice($log_message, $log_extra);
 
             $schedule->isRunning($id);
             $system->checkVersion(SOFTWARE_VERSION);
@@ -152,14 +150,14 @@ if (DEMO_INSTALLATION != '1') {
             $schedule->isFinished($id);
 
             $log_message = '[END] New Version Check';
-            $log->info($log_message);
+            $log->notice($log_message);
 
             $_SESSION['s_message_success'] .= "No Upgrade Available";
 
         } elseif ($result->slug == 'data-warehouse-build') {
 
             $log_message = '[START] Build Data Warehouse';
-            $log->info($log_message, $log_extra);
+            $log->notice($log_message, $log_extra);
 
             $dw = new DomainMOD\DwBuild();
             $schedule->isRunning($id);
@@ -168,14 +166,14 @@ if (DEMO_INSTALLATION != '1') {
             $schedule->isFinished($id);
 
             $log_message = '[END] Build Data Warehouse';
-            $log->info($log_message);
+            $log->notice($log_message);
 
             $_SESSION['s_message_success'] .= "Data Warehouse Rebuilt";
 
         } elseif ($result->slug == 'domain-queue') {
 
             $log_message = '[START] Process Domain Queue';
-            $log->info($log_message, $log_extra);
+            $log->notice($log_message, $log_extra);
 
             $queue = new DomainMOD\DomainQueue();
             $schedule->isRunning($id);
@@ -185,7 +183,7 @@ if (DEMO_INSTALLATION != '1') {
             $schedule->isFinished($id);
 
             $log_message = '[END] Process Domain Queue';
-            $log->info($log_message);
+            $log->notice($log_message);
 
             $_SESSION['s_message_success'] .= "Domain Queue Processed";
 
@@ -195,7 +193,7 @@ if (DEMO_INSTALLATION != '1') {
 
 } else {
 
-    if (DEMO_INSTALLATION == '1') {
+    if (DEMO_INSTALLATION === true) {
 
         $_SESSION['s_message_danger'] .= "Tasks Disabled in Demo Mode";
 

@@ -3,7 +3,7 @@
  * /classes/DomainMOD/DomainQueue.php
  *
  * This file is part of DomainMOD, an open source domain and internet asset manager.
- * Copyright (c) 2010-2017 Greg Chetcuti <greg@chetcuti.com>
+ * Copyright (c) 2010-2019 Greg Chetcuti <greg@chetcuti.com>
  *
  * Project: http://domainmod.org   Author: http://chetcuti.com
  *
@@ -24,6 +24,7 @@ namespace DomainMOD;
 class DomainQueue
 {
     public $api;
+    public $deeb;
     public $domain;
     public $log;
     public $maint;
@@ -34,8 +35,9 @@ class DomainQueue
     public function __construct()
     {
         $this->api = new Api();
+        $this->deeb = Database::getInstance();
         $this->domain = new Domain();
-        $this->log = new Log('domainqueue.class');
+        $this->log = new Log('class.domainqueue');
         $this->maint = new Maintenance();
         $this->queryB = new QueryBuild();
         $this->system = new System();
@@ -57,7 +59,7 @@ class DomainQueue
         }  else {
 
             $log_message = '[START] Processing Domain Queue Lists';
-            $this->log->info($log_message);
+            $this->log->notice($log_message);
 
             foreach ($result as $row) {
 
@@ -175,7 +177,7 @@ class DomainQueue
             }
 
             $log_message = '[END] Processing Domain Queue Lists';
-            $this->log->info($log_message);
+            $this->log->notice($log_message);
 
         }
 
@@ -199,7 +201,7 @@ class DomainQueue
         } else {
 
             $log_message = '[START] Processing domains in the Domain Queue';
-            $this->log->info($log_message);
+            $this->log->notice($log_message);
 
             foreach ($result as $row) {
 
@@ -248,7 +250,7 @@ class DomainQueue
 
                     $registrar = new GoDaddy();
                     list($api_key, $api_secret) = $this->api->getKeySecret($row->account_id);
-                    list($expiration_date, $dns_servers, $privacy_status, $autorenew_status) = $registrar->getFullInfo($api_key, $api_secret, $row->domain);
+                    list($domain_status, $expiration_date, $dns_servers, $privacy_status, $autorenew_status) = $registrar->getFullInfo($api_key, $api_secret, $row->domain);
 
                 } elseif ($row->api_registrar_name == 'Internet.bs') {
 
@@ -278,7 +280,7 @@ class DomainQueue
 
                     $registrar = new NameSilo();
                     $api_key = $this->api->getKey($row->account_id);
-                    list($expiration_date, $dns_servers, $privacy_status, $autorenew_status) = $registrar->getFullInfo($api_key, $row->domain);
+                    list($domain_status, $expiration_date, $dns_servers, $privacy_status, $autorenew_status) = $registrar->getFullInfo($api_key, $row->domain);
 
                 } elseif ($row->api_registrar_name == 'OpenSRS') {
 
@@ -298,7 +300,7 @@ class DomainQueue
 
                 }
 
-                // make sure the domain details was successfully retrieved
+                // make sure the domain details were successfully retrieved
                 if ($expiration_date != '' && $expiration_date != '0000-00-00' && $expiration_date != '1970-01-01'
                     && $dns_servers != '' && $privacy_status != '' && $autorenew_status != '') {
 
@@ -321,6 +323,12 @@ class DomainQueue
 
                 } else {
 
+                    if ($domain_status == 'invalid') {
+
+                        $this->markInvalidDomain($row->id);
+
+                    }
+
                     $this->markNotProcessingDomain($row->id);
 
                 }
@@ -328,7 +336,7 @@ class DomainQueue
             }
 
             $log_message = '[END] Processing domains in the Domain Queue';
-            $this->log->info($log_message);
+            $this->log->notice($log_message);
 
         }
 
@@ -339,7 +347,7 @@ class DomainQueue
 
     public function getQueueList()
     {
-        return $this->system->db()->query("
+        return $this->deeb->cnxx->query("
             SELECT dql.id, dql.api_registrar_id, dql.owner_id, dql.registrar_id, dql.account_id, dql.created_by,
                 ar.name AS api_registrar_name
             FROM domain_queue_list AS dql, api_registrars AS ar
@@ -353,7 +361,7 @@ class DomainQueue
 
     public function getQueueDomain()
     {
-        return $this->system->db()->query("
+        return $this->deeb->cnxx->query("
             SELECT dq.id, dq.api_registrar_id, dq.domain, dq.account_id, dq.created_by, ar.name AS api_registrar_name
             FROM domain_queue AS dq, api_registrars AS ar
             WHERE dq.api_registrar_id = ar.id
@@ -367,7 +375,7 @@ class DomainQueue
 
     public function markProcessingList()
     {
-        $this->system->db()->query("
+        $this->deeb->cnxx->query("
             UPDATE domain_queue_list
             SET processing = '1'
             WHERE processing = '0'
@@ -378,7 +386,7 @@ class DomainQueue
 
     public function updateDomainCount($list_id, $domain_count)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             UPDATE domain_queue_list
@@ -391,7 +399,7 @@ class DomainQueue
 
     public function markProcessingDomain()
     {
-        $this->system->db()->query("
+        $this->deeb->cnxx->query("
             UPDATE domain_queue
             SET processing = '1'
             WHERE processing = '0'
@@ -404,7 +412,7 @@ class DomainQueue
 
     public function updateDomain($queue_domain_id, $domain, $expiration_date, $dns_servers, $privacy_status, $autorenew_status, $created_by)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $this->updateExpirationDate($queue_domain_id, $expiration_date);
         $dns_id = $this->updateDnsServers($queue_domain_id, $dns_servers, $created_by);
@@ -439,7 +447,7 @@ class DomainQueue
 
     public function updateExpirationDate($queue_domain_id, $expiration_date)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             UPDATE domain_queue
@@ -452,7 +460,7 @@ class DomainQueue
 
     public function updateDnsServers($queue_domain_id, $dns_servers, $created_by)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $has_match = '';
 
@@ -502,7 +510,7 @@ class DomainQueue
             $count = 0;
 
             // Make sure DNS servers were returned
-            foreach($dns_servers as $server) {
+            foreach ($dns_servers as $server) {
 
                 $new_servers[$count++] = strtolower($server);
 
@@ -570,7 +578,7 @@ class DomainQueue
 
     public function updateIp($queue_domain_id, $domain, $created_by)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $has_match = '';
 
@@ -578,7 +586,7 @@ class DomainQueue
         $live_ip = gethostbyname($domain . '.');
 
         // If the domain doesn't resolve assign an IP and rDNS of 0.0.0.0
-        if ($live_ip == $domain) {
+        if ($live_ip == $domain || $live_ip == $domain . '.') {
 
             $live_ip = '0.0.0.0';
             $rdns = '0.0.0.0';
@@ -651,7 +659,7 @@ class DomainQueue
 
     public function updateCategory($queue_domain_id, $created_by)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $result = $pdo->query("
             SELECT id
@@ -696,7 +704,7 @@ class DomainQueue
 
     public function updateHosting($queue_domain_id, $created_by)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         // Check to see if there's an existing '[created by queue]' host
         $result = $pdo->query("
@@ -742,7 +750,7 @@ class DomainQueue
 
     public function updatePrivacy($queue_domain_id, $privacy_status)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             UPDATE domain_queue
@@ -756,7 +764,7 @@ class DomainQueue
 
     public function updateRenewStatus($queue_domain_id, $autorenew_status)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             UPDATE domain_queue
@@ -770,7 +778,7 @@ class DomainQueue
 
     public function importToDomainQueue($api_registrar_id, $domain, $owner_id, $registrar_id, $account_id, $created_by)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $tld = $this->domain->getTld($domain);
 
@@ -862,7 +870,7 @@ class DomainQueue
 
     public function importToMainDb($queue_domain_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             SELECT id, owner_id, registrar_id, account_id, domain, tld, expiry_date, cat_id, dns_id, ip_id, hosting_id, autorenew, privacy, created_by, insert_time
@@ -880,7 +888,7 @@ class DomainQueue
 
             $log_message = 'Unable to retrieve domains from queue';
             $log_extra = array('Queue Domain ID' => $queue_domain_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
             return $log_message;
 
         } else {
@@ -956,7 +964,7 @@ class DomainQueue
 
     public function updateNewDomainId($queue_domain_id, $new_domain_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             UPDATE domain_queue
@@ -969,7 +977,7 @@ class DomainQueue
 
     public function markFinishedList($list_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             UPDATE domain_queue_list
@@ -983,7 +991,7 @@ class DomainQueue
 
     public function markFinishedDomain($queue_domain_id, $domain, $expiration_date, $dns_id, $ip_id, $cat_id, $hosting_id, $privacy_status, $autorenew_status)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $creation_type_id = $this->system->getCreationTypeId('Queue');
 
@@ -1020,7 +1028,7 @@ class DomainQueue
                 $expiration_date, 'DNS ID' => $dns_id, 'IP ID' => $ip_id, 'Category ID' => $cat_id, 'Hosting ID' =>
                 $hosting_id, 'Privacy Status' => $privacy_status, 'Autorenew Status' => $autorenew_status,
                 'Creation Type ID' => $creation_type_id);
-            $this->log->error($log_message, $log_extra);
+            $this->log->critical($log_message, $log_extra);
 
         } else {
 
@@ -1038,7 +1046,7 @@ class DomainQueue
 
     public function markNotProcessingList($list_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             UPDATE domain_queue_list
@@ -1051,7 +1059,7 @@ class DomainQueue
 
     public function markNotProcessingDomain($queue_domain_id)
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $stmt = $pdo->prepare("
             UPDATE domain_queue
@@ -1062,9 +1070,23 @@ class DomainQueue
 
     }
 
+    public function markInvalidDomain($queue_domain_id)
+    {
+        $pdo = $this->deeb->cnxx;
+
+        $stmt = $pdo->prepare("
+            UPDATE domain_queue
+            SET finished = '1',
+                invalid_domain = '1'
+            WHERE id = :queue_domain_id");
+        $stmt->bindValue('queue_domain_id', $queue_domain_id, \PDO::PARAM_INT);
+        $stmt->execute();
+
+    }
+
     public function copyToHistoryList()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $result = $pdo->query("
             SELECT api_registrar_id, domain_count, owner_id, registrar_id, account_id, created_by, insert_time
@@ -1107,7 +1129,7 @@ class DomainQueue
 
             }
 
-            $this->system->db()->query("
+            $this->deeb->cnxx->query("
                 UPDATE domain_queue_list
                 SET copied_to_history = '1'
                 WHERE finished = '1'
@@ -1118,7 +1140,7 @@ class DomainQueue
 
     public function copyToHistoryDomain()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $result = $pdo->query("
             SELECT api_registrar_id, domain_id, owner_id, registrar_id, account_id, domain, tld, expiry_date, cat_id,
@@ -1188,7 +1210,7 @@ class DomainQueue
 
             }
 
-            $this->system->db()->query("
+            $this->deeb->cnxx->query("
                 UPDATE domain_queue
                 SET copied_to_history = '1'
                 WHERE finished = '1'
@@ -1199,7 +1221,7 @@ class DomainQueue
 
     public function clearFinished()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $pdo->query("
             DELETE FROM domain_queue_list
@@ -1218,7 +1240,7 @@ class DomainQueue
 
     public function clearProcessing()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $pdo->query("
             UPDATE domain_queue_list
@@ -1235,7 +1257,7 @@ class DomainQueue
 
     public function clearQueues()
     {
-        $pdo = $this->system->db();
+        $pdo = $this->deeb->cnxx;
 
         $pdo->query("DELETE FROM domain_queue_list");
 
@@ -1246,7 +1268,7 @@ class DomainQueue
     
     public function checkListQueue()
     {
-        $result =  $this->system->db()->query("
+        $result =  $this->deeb->cnxx->query("
             SELECT id
             FROM domain_queue_list
             LIMIT 1")->fetchColumn();
@@ -1266,7 +1288,7 @@ class DomainQueue
 
     public function checkDomainQueue()
     {
-        $result = $this->system->db()->query("
+        $result = $this->deeb->cnxx->query("
             SELECT id
             FROM domain_queue
             LIMIT 1")->fetchColumn();
@@ -1286,7 +1308,7 @@ class DomainQueue
 
     public function checkProcessingLists()
     {
-        $result = $this->system->db()->query("
+        $result = $this->deeb->cnxx->query("
             SELECT id
             FROM domain_queue_list
             WHERE processing = '1'
@@ -1307,7 +1329,7 @@ class DomainQueue
 
     public function checkProcessingDomains()
     {
-        $result = $this->system->db()->query("
+        $result = $this->deeb->cnxx->query("
             SELECT id
             FROM domain_queue
             WHERE processing = '1'
